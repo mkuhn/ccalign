@@ -1,0 +1,38 @@
+/* ahmed.css -- default style sheet */
+
+BODY {
+color: black;
+background: white;
+font-family: Arial, Times, Courier, serif;
+margin-left: 2.5%;
+margin-right: 2.5%;
+<!-- font-size: 85%; -->
+}
+
+A:link {
+color: navy;
+text-decoration: none;
+}
+
+A:visited {
+color: purple;
+text-decoration: none;
+}
+
+A:hover {
+background: yellow;
+text-decoration: none;
+}
+
+A:active {
+background: cyan;
+text-decoration: none;
+}
+
+P, BLOCKQUOTE {
+text-align:justify;
+}
+
+UL {
+/*text-align:left;*/
+}
