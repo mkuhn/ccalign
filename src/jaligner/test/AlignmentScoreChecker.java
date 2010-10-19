@@ -19,7 +19,6 @@
 package jaligner.test;
 
 import jaligner.Alignment;
-import jaligner.JASequence;
 import jaligner.SmithWatermanGotoh;
 import jaligner.formats.Format;
 import jaligner.formats.Pair;
@@ -29,6 +28,12 @@ import jaligner.matrix.MatrixLoader;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Random;
+
+import org.biojava.bio.seq.ProteinTools;
+import org.biojava.bio.symbol.*;
+import org.biojavax.SimpleNamespace;
+import org.biojavax.bio.seq.RichSequence;
+import org.biojavax.bio.seq.SimpleRichSequence;
 
 /**
  * Testing the scores of the alignments of the SmithWaterman algorithm
@@ -45,6 +50,10 @@ public class AlignmentScoreChecker {
 		Random random = new Random();
 		Format format = new Pair();
 
+	    Alphabet alpha = AlphabetManager.alphabetForName("PROTEIN");
+	    SimpleNamespace ns = new SimpleNamespace("biojava");
+
+		
 		try {
 			ArrayList matrices = new ArrayList();
 			for (Iterator i = MatrixLoader.list().iterator(); i.hasNext();) {
@@ -68,11 +77,10 @@ public class AlignmentScoreChecker {
 					Matrix matrix = (Matrix) MatrixLoader
 							.load((String) matrices.get(random
 									.nextInt(countOfMatrices)));
-					JASequence seq1 = new JASequence(s1);
-					JASequence seq2 = new JASequence(s2);
+					RichSequence seq1 = new SimpleRichSequence(ns, "random1", "random1", 1, ProteinTools.createProtein(s1), 1.0);
+					RichSequence seq2 = new SimpleRichSequence(ns, "random2", "random2", 1, ProteinTools.createProtein(s2), 1.0);
 
-					Alignment alignment1 = SmithWatermanGotoh.align(seq1, seq2,
-							matrix, o, e);
+					Alignment alignment1 = SmithWatermanGotoh.align(seq1, seq2, matrix, o, e);
 
 					if (!alignment1.checkScore()) {
 						System.err.println("Invalid alignment found:");

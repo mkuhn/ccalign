@@ -22,6 +22,8 @@ import jaligner.matrix.Matrix;
 
 import java.util.logging.Logger;
 
+import org.biojavax.bio.seq.RichSequence;
+
 /**
  * An implementation of the Smith-Waterman algorithm with Gotoh's improvement
  * for biological local pairwise sequence alignment.
@@ -47,9 +49,9 @@ public class SmithWatermanGotoh {
 	 * Aligns two sequences by Smith-Waterman algorithm
 	 * 
 	 * @param s1
-	 *            sequene #1 ({@link JASequence})
+	 *            sequence #1 ({@link RichSequence})
 	 * @param s2
-	 *            sequene #2 ({@link JASequence})
+	 *            sequence #2 ({@link RichSequence})
 	 * @param matrix
 	 *            scoring matrix ({@link Matrix})
 	 * @param o
@@ -58,10 +60,10 @@ public class SmithWatermanGotoh {
 	 *            extend gap penalty
 	 * @return alignment object contains the two aligned sequences, the
 	 *         alignment score and alignment statistics
-	 * @see JASequence
+	 * @see RichSequence
 	 * @see Matrix
 	 */
-	public static Alignment align(JASequence s1, JASequence s2, Matrix matrix,
+	public static Alignment align(RichSequence s1, RichSequence s2, Matrix matrix,
 			float o, float e) {
 		logger.info("Started...");
 		long start = System.currentTimeMillis();
@@ -94,8 +96,8 @@ public class SmithWatermanGotoh {
 				sizesOfVerticalGaps, sizesOfHorizontalGaps);
 		Alignment alignment = sw.traceback(s1, s2, matrix, pointers, cell,
 				sizesOfVerticalGaps, sizesOfHorizontalGaps);
-		alignment.setName1(s1.getId());
-		alignment.setName2(s2.getId());
+		alignment.setName1(s1.getIdentifier());
+		alignment.setName2(s2.getIdentifier());
 		alignment.setMatrix(matrix);
 		alignment.setOpen(o);
 		alignment.setExtend(e);
@@ -119,14 +121,14 @@ public class SmithWatermanGotoh {
 	 *            extend gap penalty
 	 * @return The cell where the traceback starts.
 	 */
-	private Cell construct(JASequence s1, JASequence s2, float[][] matrix, float o,
+	private Cell construct(RichSequence s1, RichSequence s2, float[][] matrix, float o,
 			float e, byte[] pointers, short[] sizesOfVerticalGaps,
 			short[] sizesOfHorizontalGaps) {
 		logger.info("Started...");
 		long start = System.currentTimeMillis();
 		
-		char[] a1 = s1.toArray();
-		char[] a2 = s2.toArray();
+		char[] a1 = s1.seqString().toCharArray();
+		char[] a2 = s2.seqString().toCharArray();
 
 		int m = s1.length() + 1;
 		int n = s2.length() + 1;
@@ -219,14 +221,14 @@ public class SmithWatermanGotoh {
 	 * @see Cell
 	 * @see Alignment
 	 */
-	private Alignment traceback(JASequence s1, JASequence s2, Matrix m,
+	private Alignment traceback(RichSequence s1, RichSequence s2, Matrix m,
 			byte[] pointers, Cell cell, short[] sizesOfVerticalGaps,
 			short[] sizesOfHorizontalGaps) {
 		logger.info("Started...");
 		long start = System.currentTimeMillis();
 		
-		char[] a1 = s1.toArray();
-		char[] a2 = s2.toArray();
+		char[] a1 = s1.seqString().toCharArray();
+		char[] a2 = s2.seqString().toCharArray();
 		
 		float[][] scores = m.getScores();
 

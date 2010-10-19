@@ -19,7 +19,6 @@
 package jaligner.example;
 
 import jaligner.Alignment;
-import jaligner.JASequence;
 import jaligner.SmithWatermanGotoh;
 import jaligner.formats.Pair;
 import jaligner.matrix.MatrixLoader;
@@ -73,15 +72,13 @@ public class Example {
         	while (it1.hasNext())
         	{
         		RichSequence s1 = it1.nextRichSequence();
-    			JASequence _s1 = new JASequence(s1.seqString());
 
     			RichSequenceIterator it2 = db2.getRichSequenceIterator();
         		while (it2.hasNext())
             	{
         			RichSequence s2 = it2.nextRichSequence();
-        			JASequence _s2 = new JASequence(s2.seqString());
             		
-        			Alignment alignment = SmithWatermanGotoh.align(_s1, _s2, MatrixLoader.load("BLOSUM62"), 10f, 0.5f);
+        			Alignment alignment = SmithWatermanGotoh.align(s1, s2, MatrixLoader.load("BLOSUM62"), 10f, 0.5f);
 	    	        
 	    	        System.out.println ( alignment.getSummary() );
 	    	        System.out.println ( new Pair().format(alignment) );
