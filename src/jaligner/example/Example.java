@@ -26,7 +26,8 @@ import jaligner.matrix.MatrixLoader;
 import jaligner.util.SequenceParser;
 
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.FileInputStream;
+import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -42,12 +43,12 @@ public class Example {
 	/**
 	 * 
 	 */
-	private static final String SAMPLE_SEQUENCE_P35_HUMAN = "jaligner/example/sequences/p53_human.fasta";
+	private static final String SAMPLE_SEQUENCE_A = "src/jaligner/example/sequences/asl.fasta";
 	
 	/**
 	 * 
 	 */
-	private static final String SAMPLE_SEQUENCE_P35_MOUSE = "jaligner/example/sequences/p53_mouse.fasta";
+	private static final String SAMPLE_SEQUENCE_B = "src/jaligner/example/sequences/t07c4.10.fasta";
 	
 	/**
 	 * Logger
@@ -62,8 +63,8 @@ public class Example {
         try {
         	logger.info("Running example...");
         	
-			Sequence s1 = SequenceParser.parse(loadP53Human());  
-			Sequence s2 = SequenceParser.parse(loadP53Mouse());
+			Sequence s1 = SequenceParser.parse(loadSampleSequence(SAMPLE_SEQUENCE_A));  
+			Sequence s2 = SequenceParser.parse(loadSampleSequence(SAMPLE_SEQUENCE_B));
 	        
 	        Alignment alignment = SmithWatermanGotoh.align(s1, s2, MatrixLoader.load("BLOSUM62"), 10f, 0.5f);
 	        
@@ -83,30 +84,18 @@ public class Example {
 	 * @throws IOException
 	 */
 	private static String loadSampleSequence(String path) throws IOException {
-		InputStream inputStream = Example.class.getClassLoader().getResourceAsStream(path);
-        StringBuffer buffer = new StringBuffer();
-        int ch;
-        while ((ch = inputStream.read()) != -1) {
-            buffer.append((char)ch);
-        }
-        return buffer.toString();
-	}
-	
-	/**
-	 * 
-	 * @return sequence string
-	 * @throws IOException
-	 */
-	public static String loadP53Human( ) throws IOException {
-		return loadSampleSequence(SAMPLE_SEQUENCE_P35_HUMAN);
+	    StringBuilder text = new StringBuilder();
+	    String NL = System.getProperty("line.separator");
+	    Scanner scanner = new Scanner(new FileInputStream(path));
+	    try {
+	      while (scanner.hasNextLine()){
+	        text.append(scanner.nextLine() + NL);
+	      }
+	    }
+	    finally{
+	      scanner.close();
+	    }
+	    return text.toString();
 	}
 
-	/**
-	 * 
-	 * @return sequence string
-	 * @throws IOException
-	 */
-	public static String loadP53Mouse( ) throws IOException {
-		return loadSampleSequence(SAMPLE_SEQUENCE_P35_MOUSE);
-	}
 }
