@@ -26,7 +26,7 @@ import java.io.Serializable;
  * @author Ahmed Moustafa (ahmed@users.sf.net)
  */
 
-public class Sequence implements Serializable {
+public class JASequence implements Serializable {
 	/**
      * 
      */
@@ -65,7 +65,7 @@ public class Sequence implements Serializable {
 	/**
 	 * Constructor
 	 */
-	public Sequence( ) {
+	public JASequence( ) {
 	   super(); 
 	}
 
@@ -73,7 +73,7 @@ public class Sequence implements Serializable {
 	 * Constructor
 	 * @param sequence
 	 */
-	public Sequence(String sequence) {
+	public JASequence(String sequence) {
 	   super(); 
 	   this.sequence = sequence;
 	}
@@ -86,7 +86,7 @@ public class Sequence implements Serializable {
 	 * @param description
 	 * @param type
 	 */
-	public Sequence(String sequence, String id, String description, int type) {
+	public JASequence(String sequence, String id, String description, int type) {
 	   super(); 
 	   this.sequence = sequence;
 	   this.id = id;

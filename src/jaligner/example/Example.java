@@ -19,17 +19,20 @@
 package jaligner.example;
 
 import jaligner.Alignment;
-import jaligner.Sequence;
+import jaligner.JASequence;
 import jaligner.SmithWatermanGotoh;
 import jaligner.formats.Pair;
 import jaligner.matrix.MatrixLoader;
-import jaligner.util.SequenceParser;
 
-import java.io.IOException;
-import java.io.FileInputStream;
-import java.util.Scanner;
+import java.io.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import org.biojava.bio.*;
+import org.biojava.bio.symbol.*;
+import org.biojavax.SimpleNamespace;
+import org.biojavax.bio.db.HashRichSequenceDB;
+import org.biojavax.bio.seq.*;
 
 /**
  * Example of using JAligner API to align P53 human aganist
@@ -63,13 +66,28 @@ public class Example {
         try {
         	logger.info("Running example...");
         	
-			Sequence s1 = SequenceParser.parse(loadSampleSequence(SAMPLE_SEQUENCE_A));  
-			Sequence s2 = SequenceParser.parse(loadSampleSequence(SAMPLE_SEQUENCE_B));
+        	HashRichSequenceDB db1 = loadSequences(SAMPLE_SEQUENCE_A);  
+        	HashRichSequenceDB db2 = loadSequences(SAMPLE_SEQUENCE_B);
 	        
-	        Alignment alignment = SmithWatermanGotoh.align(s1, s2, MatrixLoader.load("BLOSUM62"), 10f, 0.5f);
-	        
-	        System.out.println ( alignment.getSummary() );
-	        System.out.println ( new Pair().format(alignment) );
+        	RichSequenceIterator it1 = db1.getRichSequenceIterator();
+        	while (it1.hasNext())
+        	{
+        		RichSequence s1 = it1.nextRichSequence();
+    			JASequence _s1 = new JASequence(s1.seqString());
+
+    			RichSequenceIterator it2 = db2.getRichSequenceIterator();
+        		while (it2.hasNext())
+            	{
+        			RichSequence s2 = it2.nextRichSequence();
+        			JASequence _s2 = new JASequence(s2.seqString());
+            		
+        			Alignment alignment = SmithWatermanGotoh.align(_s1, _s2, MatrixLoader.load("BLOSUM62"), 10f, 0.5f);
+	    	        
+	    	        System.out.println ( alignment.getSummary() );
+	    	        System.out.println ( new Pair().format(alignment) );
+            	}
+        	}
+        	
 	        
 	        logger.info("Finished running example");
         } catch (Exception e) {
@@ -82,20 +100,22 @@ public class Example {
 	 * @param path location of the sequence
 	 * @return sequence string
 	 * @throws IOException
+	 * @throws BioException 
 	 */
-	private static String loadSampleSequence(String path) throws IOException {
-	    StringBuilder text = new StringBuilder();
-	    String NL = System.getProperty("line.separator");
-	    Scanner scanner = new Scanner(new FileInputStream(path));
-	    try {
-	      while (scanner.hasNextLine()){
-	        text.append(scanner.nextLine() + NL);
-	      }
+	private static HashRichSequenceDB loadSequences(String path) throws IOException, BioException {
+	    BufferedReader br = new BufferedReader(new FileReader(path));
+	    Alphabet alpha = AlphabetManager.alphabetForName("PROTEIN");
+	    SimpleNamespace ns = new SimpleNamespace("biojava");
+
+	    HashRichSequenceDB db = new HashRichSequenceDB();
+	    
+	    RichSequenceIterator iterator = RichSequence.IOTools.readFasta(br,
+	            alpha.getTokenization("token"), ns);
+	    while (iterator.hasNext()) {
+	        db.addRichSequence(iterator.nextRichSequence());
 	    }
-	    finally{
-	      scanner.close();
-	    }
-	    return text.toString();
+	    
+		return db;
 	}
 
 }

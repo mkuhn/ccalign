@@ -19,7 +19,7 @@
 package jaligner.formats;
 
 import jaligner.Alignment;
-import jaligner.Sequence;
+import jaligner.JASequence;
 
 /**
  * <a href="http://www.ncbi.nlm.nih.gov/BLAST/fasta.html">FASTA</a> format.
@@ -48,7 +48,7 @@ public class FASTA extends Format {
 	 * 
 	 * @return String
 	 */
-	public String format (Sequence sequence) {
+	public String format (JASequence sequence) {
 		StringBuffer buffer = new StringBuffer (">");
 		buffer.append(sequence.getId() == null ? "" : sequence.getId());
 		buffer.append("\n");
@@ -72,8 +72,8 @@ public class FASTA extends Format {
 		StringBuffer s2 = new StringBuffer();
 		s1.append(alignment.getSequence1());
 		s2.append(alignment.getSequence2());
-		buffer.append(format(new Sequence(s1.toString(), alignment.getName1(), "", Sequence.PROTEIN)));
-		buffer.append(format(new Sequence(s2.toString(), alignment.getName2(), "", Sequence.PROTEIN)));
+		buffer.append(format(new JASequence(s1.toString(), alignment.getName1(), "", JASequence.PROTEIN)));
+		buffer.append(format(new JASequence(s2.toString(), alignment.getName2(), "", JASequence.PROTEIN)));
 		return buffer.toString();
 	}
 }

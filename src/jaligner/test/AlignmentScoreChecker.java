@@ -19,7 +19,7 @@
 package jaligner.test;
 
 import jaligner.Alignment;
-import jaligner.Sequence;
+import jaligner.JASequence;
 import jaligner.SmithWatermanGotoh;
 import jaligner.formats.Format;
 import jaligner.formats.Pair;
@@ -68,8 +68,8 @@ public class AlignmentScoreChecker {
 					Matrix matrix = (Matrix) MatrixLoader
 							.load((String) matrices.get(random
 									.nextInt(countOfMatrices)));
-					Sequence seq1 = new Sequence(s1);
-					Sequence seq2 = new Sequence(s2);
+					JASequence seq1 = new JASequence(s1);
+					JASequence seq2 = new JASequence(s2);
 
 					Alignment alignment1 = SmithWatermanGotoh.align(seq1, seq2,
 							matrix, o, e);

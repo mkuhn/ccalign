@@ -1,7 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
 	<classpathentry kind="src" path="src"/>
-	<classpathentry kind="lib" path="jaligner.jar"/>
+	<classpathentry kind="lib" path="jaligner.jar" sourcepath="src"/>
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="/Users/mkuhn/Dropbox/src/workspace/biojava-1.7.1-all/biojava-1.7.1/commons-pool-1.1.jar"/>
+	<classpathentry kind="lib" path="/Users/mkuhn/Dropbox/src/workspace/biojava-1.7.1-all/biojava-1.7.1/commons-dbcp-1.1.jar"/>
+	<classpathentry kind="lib" path="/Users/mkuhn/Dropbox/src/workspace/biojava-1.7.1-all/biojava-1.7.1/commons-collections-2.1.jar"/>
+	<classpathentry kind="lib" path="/Users/mkuhn/Dropbox/src/workspace/biojava-1.7.1-all/biojava-1.7.1/commons-cli.jar"/>
+	<classpathentry kind="lib" path="/Users/mkuhn/Dropbox/src/workspace/biojava-1.7.1-all/biojava-1.7.1/bytecode.jar"/>
+	<classpathentry kind="lib" path="/Users/mkuhn/Dropbox/src/workspace/biojava-1.7.1-all/biojava-1.7.1/biojava-1.7.1.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
