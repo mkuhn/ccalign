@@ -72,6 +72,11 @@ public class Alignment {
 	private char[] sequence1;
 
 	/**
+	 * Registers of aligned sequence #1
+	 */
+	private char[] coils1;
+
+	/**
 	 * Name of sequence #1
 	 */
 	private String name1;
@@ -85,6 +90,11 @@ public class Alignment {
 	 * Aligned sequence #2
 	 */
 	private char[] sequence2;
+
+	/**
+	 * Registers of aligned sequence #2
+	 */
+	private char[] coils2;
 
 	/**
 	 * Name of sequence #2
@@ -224,6 +234,20 @@ public class Alignment {
 	}
 
 	/**
+	 * @return Returns the coils1.
+	 */
+	public char[] getCoils1() {
+		return coils1;
+	}
+
+	/**
+	 * @return Returns the coils2.
+	 */
+	public char[] getCoils2() {
+		return coils2;
+	}
+	
+	/**
 	 * @param sequence1
 	 *            The sequence1 to set.
 	 */
@@ -231,6 +255,20 @@ public class Alignment {
 		this.sequence1 = sequence1;
 	}
 
+	/**
+	 * @param coils1
+	 */
+	public void setCoils1(char[] coils1) {
+		this.coils1 = coils1;
+	}
+
+	/**
+	 * @param coils2
+	 */
+	public void setCoils2(char[] coils2) {
+		this.coils2 = coils2;
+	}
+	
 	/**
 	 * @return Returns the sequence2.
 	 */

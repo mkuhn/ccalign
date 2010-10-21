@@ -86,6 +86,10 @@ public class SmithWatermanGotoh {
 		int m = s1.length() + 1;
 		int n = s2.length() + 1;
 		
+		logger.info(((Integer)s1.length()).toString());
+		logger.info(((Integer)pc1.length()).toString());
+
+		
 		assert s1.length() == pc1.length();
 		assert s2.length() == pc2.length();
 
@@ -109,10 +113,10 @@ public class SmithWatermanGotoh {
 
 		Cell cell = sw.construct(s1, s2, pc1, pc2, blosum_scores, coil_scores, o, e, pointers,
 				sizesOfVerticalGaps, sizesOfHorizontalGaps);
-		Alignment alignment = sw.traceback(s1, s2, blosum, pointers, cell,
+		Alignment alignment = sw.traceback(s1, s2, pc1, pc2, blosum, pointers, cell,
 				sizesOfVerticalGaps, sizesOfHorizontalGaps);
-		alignment.setName1(s1.getIdentifier());
-		alignment.setName2(s2.getIdentifier());
+		alignment.setName1(s1.getName());
+		alignment.setName2(s2.getName());
 		alignment.setMatrix(blosum);
 		alignment.setOpen(o);
 		alignment.setExtend(e);
@@ -242,6 +246,8 @@ public class SmithWatermanGotoh {
 	 *            sequence #1
 	 * @param s2
 	 *            sequence #2
+	 * @param pc2 
+	 * @param pc1 
 	 * @param m
 	 *            scoring matrix
 	 * @param cell
@@ -251,7 +257,7 @@ public class SmithWatermanGotoh {
 	 * @see Cell
 	 * @see Alignment
 	 */
-	private Alignment traceback(RichSequence s1, RichSequence s2, Matrix m,
+	private Alignment traceback(RichSequence s1, RichSequence s2, RichSequence pc1, RichSequence pc2, Matrix m,
 			byte[] pointers, Cell cell, short[] sizesOfVerticalGaps,
 			short[] sizesOfHorizontalGaps) {
 		logger.info("Started...");
@@ -259,8 +265,10 @@ public class SmithWatermanGotoh {
 		
 		char[] a1 = s1.seqString().toCharArray();
 		char[] a2 = s2.seqString().toCharArray();
+		char[] b1 = pc1.seqString().toCharArray();
+		char[] b2 = pc2.seqString().toCharArray();
 		
-		float[][] scores = m.getScores();
+		float[][] scores = m.getScores(); // scores at this point are only for stating similarity
 
 		int n = s2.length() + 1;
 
@@ -273,6 +281,8 @@ public class SmithWatermanGotoh {
 		char[] reversed1 = new char[maxlen]; // reversed sequence #1
 		char[] reversed2 = new char[maxlen]; // reversed sequence #2
 		char[] reversed3 = new char[maxlen]; // reversed markup
+		char[] revcoils1 = new char[maxlen]; // reversed coils #1
+		char[] revcoils2 = new char[maxlen]; // reversed coils #2
 
 		int len1 = 0; // length of sequence #1 after alignment
 		int len2 = 0; // length of sequence #2 after alignment
@@ -295,19 +305,31 @@ public class SmithWatermanGotoh {
 			switch (pointers[k + j]) {
 			case Directions.UP:
 				for (int l = 0, len = sizesOfVerticalGaps[k + j]; l < len; l++) {
-					reversed1[len1++] = a1[--i];
-					reversed2[len2++] = Alignment.GAP;
+					--i;
+					reversed1[len1] = a1[i];
+					revcoils1[len1] = b1[i];
+					len1++;
+					revcoils2[len2] = Markups.GAP;
+					reversed2[len2] = Alignment.GAP;
+					len2++;
 					reversed3[len3++] = Markups.GAP;
 					k -= n;
 					gaps++;
 				}
 				break;
+				
 			case Directions.DIAGONAL:
-				c1 = a1[--i];
-				c2 = a2[--j];
+				--i;
+				--j;
+				c1 = a1[i];
+				c2 = a2[j];
 				k -= n;
-				reversed1[len1++] = c1;
-				reversed2[len2++] = c2;
+				reversed1[len1] = c1;
+				reversed2[len2] = c2;
+				revcoils1[len1] = b1[i];
+				revcoils2[len2] = b2[j];
+				len1++;
+				len2++;
 				if (c1 == c2) {
 					reversed3[len3++] = Markups.IDENTITY;
 					identity++;
@@ -319,10 +341,16 @@ public class SmithWatermanGotoh {
 					reversed3[len3++] = Markups.MISMATCH;
 				}
 				break;
+				
 			case Directions.LEFT:
 				for (int l = 0, len = sizesOfHorizontalGaps[k + j]; l < len; l++) {
-					reversed1[len1++] = Alignment.GAP;
-					reversed2[len2++] = a2[--j];
+					reversed1[len1] = Alignment.GAP;
+					revcoils1[len1] = Markups.GAP;
+					len1++;
+					--j;
+					reversed2[len2] = a2[j];
+					revcoils2[len2] = b2[j];
+					len2++;
 					reversed3[len3++] = Markups.GAP;
 					gaps++;
 				}
@@ -334,8 +362,14 @@ public class SmithWatermanGotoh {
 
 		alignment.setSequence1(reverse(reversed1, len1));
 		alignment.setStart1(i);
+		alignment.setCoils1(reverse(revcoils1, len1));
+		assert alignment.getSequence1().length == alignment.getCoils1().length; 
+		
 		alignment.setSequence2(reverse(reversed2, len2));
 		alignment.setStart2(j);
+		alignment.setCoils2(reverse(revcoils2, len2));
+		assert alignment.getSequence2().length == alignment.getCoils2().length; 
+
 		alignment.setMarkupLine(reverse(reversed3, len3));
 		alignment.setIdentity(identity);
 		alignment.setGaps(gaps);

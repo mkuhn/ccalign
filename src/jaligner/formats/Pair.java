@@ -66,6 +66,8 @@ public class Pair extends Format {
 	public String format(Alignment alignment) {
 		char[] sequence1 = alignment.getSequence1();
 		char[] sequence2 = alignment.getSequence2();
+		char[] coils1 = alignment.getCoils1();
+		char[] coils2 = alignment.getCoils2();
 		char[] markup = alignment.getMarkupLine();
 		
 		int length = sequence1.length > sequence2.length ? sequence2.length : sequence1.length;
@@ -85,6 +87,8 @@ public class Pair extends Format {
 		
 		char[] subsequence1;
 		char[] subsequence2;
+		char[] coilsequence1;
+		char[] coilsequence2;
 		char[] submarkup;
 		int line;
 		
@@ -98,12 +102,16 @@ public class Pair extends Format {
 			line = ((i + 1) * SEQUENCE_WIDTH) < length ? (i + 1) * SEQUENCE_WIDTH: length;
 
 			subsequence1 = new char[line - i * SEQUENCE_WIDTH];
-			subsequence2 = new char[line - i * SEQUENCE_WIDTH];
+			subsequence2 = new char[line - i * SEQUENCE_WIDTH]; 
+			coilsequence1 = new char[line - i * SEQUENCE_WIDTH];
+			coilsequence2 = new char[line - i * SEQUENCE_WIDTH]; 
 			submarkup = new char[line - i * SEQUENCE_WIDTH];
 		
 			for (int j = i * SEQUENCE_WIDTH, k = 0; j < line; j++, k++) {
 				subsequence1[k] = sequence1[j];
 				subsequence2[k] = sequence2[j];
+				coilsequence1[k] = Character.toLowerCase(coils1[j]);
+				coilsequence2[k] = Character.toLowerCase(coils2[j]);
 				submarkup[k] = markup[j];
 				c1 = subsequence1[k];
 				c2 = subsequence2[k];
@@ -142,6 +150,14 @@ public class Pair extends Format {
 			buffer.append(adjustPosition(new Integer(position2 - 1).toString()));
 			buffer.append(Commons.getLineSeparator());
 			
+			buffer.append(Commons.getLineSeparator());
+
+			buffer.append(preMarkup);
+			buffer.append(coilsequence1);
+			buffer.append(Commons.getLineSeparator());
+			buffer.append(preMarkup);
+			buffer.append(coilsequence2);
+			buffer.append(Commons.getLineSeparator());
 			buffer.append(Commons.getLineSeparator());
 		}
 		return buffer.toString();

@@ -35,6 +35,8 @@ import org.biojavax.SimpleNamespace;
 import org.biojavax.bio.db.HashRichSequenceDB;
 import org.biojavax.bio.seq.*;
 
+import com.sun.tools.javac.util.List;
+
 /**
  * Example of using JAligner API to align P53 human against
  * P53 mouse using Smith-Waterman-Gotoh algorithm.
@@ -85,12 +87,16 @@ public class Example {
         	
         	Matrix blosum = MatrixLoader.load("BLOSUM62");
         	
+        	ArrayList<String> results = new ArrayList<String>();
+        	
         	RichSequenceIterator it1 = db1.getRichSequenceIterator();
         	while (it1.hasNext())
         	{
         		RichSequence s1 = it1.nextRichSequence();
         		RichSequence pc1 = pcdb1.getRichSequence(s1.getName());
 
+        		assert s1.length() == pc1.length() : s1.getName();
+        		
     			RichSequenceIterator it2 = db2.getRichSequenceIterator();
         		while (it2.hasNext())
             	{
@@ -101,11 +107,19 @@ public class Example {
 	    	        
 	    	        System.out.println ( alignment.getSummary() );
 	    	        System.out.println ( new Pair().format(alignment) );
+	    	        
+	    	        results.add(s1.getName()+"\t"+s2.getName()+"\t"+alignment.getScore());
             	}
         	}
         	
 	        
 	        logger.info("Finished running example");
+	        
+	        for (String s:results)
+	        {
+	        	System.out.println(s);
+	        }
+	        
         } catch (Exception e) {
         	logger.log(Level.SEVERE, "Failed running example: " + e.getMessage(), e);
         }
