@@ -108,7 +108,7 @@ public class Example {
 	    	        System.out.println ( alignment.getSummary() );
 	    	        System.out.println ( new Pair().format(alignment) );
 	    	        
-	    	        results.add(s1.getName()+"\t"+s2.getName()+"\t"+alignment.getScore());
+	    	        results.add(s1.getName()+"\t"+s2.getName()+"\t"+alignment.getScore()+"\t"+alignment.getCoilMatches());
             	}
         	}
         	

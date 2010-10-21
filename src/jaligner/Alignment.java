@@ -418,6 +418,24 @@ public class Alignment {
 		return buffer.toString();
 	}
 
+	public int getCoilMatches()
+	{
+		int m = 0;
+		
+		char c1, c2;
+		
+		for (int i = 0; i < coils1.length; i++)
+		{
+			c1 = coils1[i];
+			if (c1 == '-' || c1 == ' ') continue;
+			c2 = coils2[i];
+			if (c2 == '-' || c2 == ' ') continue;
+			if (c1 == c2) m++;
+		}
+		
+		return m;
+	}
+	
 	/**
 	 * Calculate the score of the alignment, not using the score field (the
 	 * function only uses sequence1, sequence2, matrix and gap penalties). (By:
