@@ -36,7 +36,7 @@ public class FormatFactory {
     /**
      * {@link HashMap} of {@link Format}
      */
-	private HashMap formats = new HashMap();
+	private HashMap<String, Format> formats = new HashMap<String, Format>();
 	
 	/**
 	 * Hidden constructor
@@ -78,7 +78,7 @@ public class FormatFactory {
      * Returns a list of registered formats
      * @return {@link Collection}
      */
-    public Collection getFormats( ) {
+    public Collection<String> getFormats( ) {
     	return formats.keySet();
     }
 }

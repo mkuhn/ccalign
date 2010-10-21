@@ -140,8 +140,8 @@ public class MatrixLoader {
 				tokenizer = new StringTokenizer ( line.trim( ) );
 				char acid = tokenizer.nextToken().charAt(0);
 				for (int i = 0; i < SIZE; i++) {
-					if (acids[i] != 0) {
-						scores[acid][acids[i]] = Float.parseFloat(tokenizer.nextToken()); 
+					if (acids[i] != 0 && tokenizer.hasMoreTokens()) {
+						scores[acids[i]][acid] = scores[acid][acids[i]] = Float.parseFloat(tokenizer.nextToken()); 
 					}
 				}
 			}
@@ -160,9 +160,9 @@ public class MatrixLoader {
 	 * @return sorted array of scoring matrices
 	 * @throws MatrixLoaderException
 	 */
-	public static Collection list (boolean sort ) throws MatrixLoaderException {
+	public static Collection<String> list (boolean sort ) throws MatrixLoaderException {
 		logger.info("Loading list of scoring matrices...");
-	    ArrayList matrices = new ArrayList();
+	    ArrayList<String> matrices = new ArrayList<String>();
 		URL url = MatrixLoader.class.getClassLoader().getResource(MATRICES_HOME);
 		if (url.getFile().toString().indexOf("!") != -1) {
 			// Load from Jar
@@ -176,7 +176,7 @@ public class MatrixLoader {
 		        logger.log(Level.SEVERE, message, e);
 		        throw new MatrixLoaderException (message);
 		    }
-			Enumeration entries = jar.entries();
+			Enumeration<?> entries = jar.entries();
 			JarEntry entry;
 			String entryName;
 			int length = MATRICES_HOME.length();
@@ -203,7 +203,7 @@ public class MatrixLoader {
 			}
 		}
 		if (sort) {
-		    Collections.sort(matrices, new MatricesCompartor());
+		    Collections.sort(matrices, new MatricesComparator());
 		}
 		logger.info("Finished loading list of scoring matrices");
 		return matrices;
@@ -214,7 +214,7 @@ public class MatrixLoader {
 	 * @return sorted array of scoring matrices
 	 * @throws MatrixLoaderException
 	 */
-	public static Collection list ( ) throws MatrixLoaderException {
+	public static Collection<String> list ( ) throws MatrixLoaderException {
 	    return list(false);
 	}
 }

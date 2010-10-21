@@ -20,6 +20,7 @@ package jaligner;
 
 import jaligner.matrix.Matrix;
 
+import java.util.ArrayList;
 import java.util.logging.Logger;
 
 import org.biojavax.bio.seq.RichSequence;
@@ -52,7 +53,13 @@ public class SmithWatermanGotoh {
 	 *            sequence #1 ({@link RichSequence})
 	 * @param s2
 	 *            sequence #2 ({@link RichSequence})
-	 * @param matrix
+	 * @param pc1
+	 * 			  coiled-coil registers for sequence 1 
+	 * @param pc2 
+	 * 			  coiled-coil registers for sequence 2 
+	 * @param matrices 
+	 *            coiled-coil scoring matrices ({@link Matrix})
+	 * @param blosum
 	 *            scoring matrix ({@link Matrix})
 	 * @param o
 	 *            open gap penalty
@@ -63,16 +70,24 @@ public class SmithWatermanGotoh {
 	 * @see RichSequence
 	 * @see Matrix
 	 */
-	public static Alignment align(RichSequence s1, RichSequence s2, Matrix matrix,
+	public static Alignment align(RichSequence s1, RichSequence s2, RichSequence pc1, RichSequence pc2, ArrayList<Matrix> matrices, Matrix blosum,
 			float o, float e) {
 		logger.info("Started...");
 		long start = System.currentTimeMillis();
-		float[][] scores = matrix.getScores();
-
+		float[][] blosum_scores = blosum.getScores();
+		ArrayList<float[][]> coil_scores = new ArrayList<float[][]>(matrices.size());
+		
+	    for (Matrix matrix : matrices) {
+	        coil_scores.add(matrix.getScores());
+	    }
+ 
 		SmithWatermanGotoh sw = new SmithWatermanGotoh();
 
 		int m = s1.length() + 1;
 		int n = s2.length() + 1;
+		
+		assert s1.length() == pc1.length();
+		assert s2.length() == pc2.length();
 
 		byte[] pointers = new byte[m * n];
 
@@ -92,13 +107,13 @@ public class SmithWatermanGotoh {
 			}
 		}
 
-		Cell cell = sw.construct(s1, s2, scores, o, e, pointers,
+		Cell cell = sw.construct(s1, s2, pc1, pc2, blosum_scores, coil_scores, o, e, pointers,
 				sizesOfVerticalGaps, sizesOfHorizontalGaps);
-		Alignment alignment = sw.traceback(s1, s2, matrix, pointers, cell,
+		Alignment alignment = sw.traceback(s1, s2, blosum, pointers, cell,
 				sizesOfVerticalGaps, sizesOfHorizontalGaps);
 		alignment.setName1(s1.getIdentifier());
 		alignment.setName2(s2.getIdentifier());
-		alignment.setMatrix(matrix);
+		alignment.setMatrix(blosum);
 		alignment.setOpen(o);
 		alignment.setExtend(e);
 		logger.info("Finished in " + (System.currentTimeMillis() - start)
@@ -113,15 +128,18 @@ public class SmithWatermanGotoh {
 	 *            sequence #1
 	 * @param s2
 	 *            sequence #2
-	 * @param matrix
+	 * @param pc2 
+	 * @param pc1 
+	 * @param blosum
 	 *            scoring matrix
+	 * @param coil_scores 
 	 * @param o
 	 *            open gap penalty
 	 * @param e
 	 *            extend gap penalty
 	 * @return The cell where the traceback starts.
 	 */
-	private Cell construct(RichSequence s1, RichSequence s2, float[][] matrix, float o,
+	private Cell construct(RichSequence s1, RichSequence s2, RichSequence pc1, RichSequence pc2, float[][] blosum, ArrayList<float[][]> coil_scores, float o,
 			float e, byte[] pointers, short[] sizesOfVerticalGaps,
 			short[] sizesOfHorizontalGaps) {
 		logger.info("Started...");
@@ -129,6 +147,18 @@ public class SmithWatermanGotoh {
 		
 		char[] a1 = s1.seqString().toCharArray();
 		char[] a2 = s2.seqString().toCharArray();
+		ArrayList<Integer> c1 = new ArrayList<Integer>(pc1.length());
+		ArrayList<Integer> c2 = new ArrayList<Integer>(pc1.length());
+
+		for (char c : pc1.seqString().toCharArray())
+		{
+			c1.add( (int)c - (int)'A' );
+		}
+		
+		for (char c : pc2.seqString().toCharArray())
+		{
+			c2.add( (int)c - (int)'A' );
+		}
 
 		int m = s1.length() + 1;
 		int n = s2.length() + 1;
@@ -156,7 +186,7 @@ public class SmithWatermanGotoh {
 			h = Float.NEGATIVE_INFINITY;
 			vDiagonal = v[0];
 			for (int j = 1, l = k + 1; j < n; j++, l++) {
-				similarityScore = matrix[a1[i - 1]][a2[j - 1]];
+				similarityScore = blosum[a1[i - 1]][a2[j - 1]];
 
 				// Fill the matrices
 				f = vDiagonal + similarityScore;

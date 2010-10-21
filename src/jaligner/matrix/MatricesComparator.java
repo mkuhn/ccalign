@@ -26,14 +26,12 @@ import java.util.Comparator;
  * @author Ahmed Moustafa (ahmed@users.sf.net)
  */
 
-public class MatricesCompartor implements Comparator {
+public class MatricesComparator implements Comparator<String> {
 
 	/* (non-Javadoc)
 	 * @see java.util.Comparator#compare(java.lang.Object, java.lang.Object)
 	 */
-	public int compare(Object o1, Object o2) {
-		String s1 = (String) o1;
-		String s2 = (String) o2;
+	public int compare(String s1, String s2) {
 		
 		int index1 = firstDigitIndex(s1);
 		int index2 = firstDigitIndex(s2);

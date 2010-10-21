@@ -21,9 +21,11 @@ package jaligner.example;
 import jaligner.Alignment;
 import jaligner.SmithWatermanGotoh;
 import jaligner.formats.Pair;
+import jaligner.matrix.Matrix;
 import jaligner.matrix.MatrixLoader;
 
 import java.io.*;
+import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -34,7 +36,7 @@ import org.biojavax.bio.db.HashRichSequenceDB;
 import org.biojavax.bio.seq.*;
 
 /**
- * Example of using JAligner API to align P53 human aganist
+ * Example of using JAligner API to align P53 human against
  * P53 mouse using Smith-Waterman-Gotoh algorithm.
  *
  * @author Ahmed Moustafa (ahmed@users.sf.net)
@@ -45,12 +47,14 @@ public class Example {
 	/**
 	 * 
 	 */
-	private static final String SAMPLE_SEQUENCE_A = "src/jaligner/example/sequences/asl.fasta";
+	private static final String SAMPLE_SEQUENCE_A = "src/jaligner/example/sequences/sass6.faa";
+	private static final String SAMPLE_PC_A = "src/jaligner/example/sequences/sass6_pc.faa";
 	
 	/**
 	 * 
 	 */
-	private static final String SAMPLE_SEQUENCE_B = "src/jaligner/example/sequences/t07c4.10.fasta";
+	private static final String SAMPLE_SEQUENCE_B = "src/jaligner/example/sequences/cel.faa";
+	private static final String SAMPLE_PC_B = "src/jaligner/example/sequences/cel_pc.faa";
 	
 	/**
 	 * Logger
@@ -67,18 +71,33 @@ public class Example {
         	
         	HashRichSequenceDB db1 = loadSequences(SAMPLE_SEQUENCE_A);  
         	HashRichSequenceDB db2 = loadSequences(SAMPLE_SEQUENCE_B);
-	        
+        	HashRichSequenceDB pcdb1 = loadSequences(SAMPLE_PC_A);
+        	HashRichSequenceDB pcdb2 = loadSequences(SAMPLE_PC_B);
+
+        	ArrayList<Matrix> matrices = new ArrayList<Matrix>();
+        	
+        	for (char c : "abcdefg".toCharArray())
+        	{
+        		Matrix matrix = MatrixLoader.load(c + "_blosum.iij");
+        		matrices.add(matrix);
+        	}
+        	
+        	
+        	Matrix blosum = MatrixLoader.load("BLOSUM62");
+        	
         	RichSequenceIterator it1 = db1.getRichSequenceIterator();
         	while (it1.hasNext())
         	{
         		RichSequence s1 = it1.nextRichSequence();
+        		RichSequence pc1 = pcdb1.getRichSequence(s1.getName());
 
     			RichSequenceIterator it2 = db2.getRichSequenceIterator();
         		while (it2.hasNext())
             	{
         			RichSequence s2 = it2.nextRichSequence();
-            		
-        			Alignment alignment = SmithWatermanGotoh.align(s1, s2, MatrixLoader.load("BLOSUM62"), 10f, 0.5f);
+        			RichSequence pc2 = pcdb2.getRichSequence(s2.getName());
+	
+        			Alignment alignment = SmithWatermanGotoh.align(s1, s2, pc1, pc2, matrices, blosum, 10f, 0.5f);
 	    	        
 	    	        System.out.println ( alignment.getSummary() );
 	    	        System.out.println ( new Pair().format(alignment) );
@@ -106,10 +125,10 @@ public class Example {
 
 	    HashRichSequenceDB db = new HashRichSequenceDB();
 	    
-	    RichSequenceIterator iterator = RichSequence.IOTools.readFasta(br,
-	            alpha.getTokenization("token"), ns);
+	    RichSequenceIterator iterator = RichSequence.IOTools.readFasta(br, alpha.getTokenization("token"), ns);
 	    while (iterator.hasNext()) {
-	        db.addRichSequence(iterator.nextRichSequence());
+	    	RichSequence seq = iterator.nextRichSequence();
+	        db.addRichSequence(seq);
 	    }
 	    
 		return db;
