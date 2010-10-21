@@ -104,7 +104,7 @@ public class MatrixLoader {
 	 * @see NamedInputStream
 	 */
 	public static Matrix load (NamedInputStream nis) throws MatrixLoaderException {
-	    logger.info("Loading scoring matrix...");
+	    logger.info("Loading scoring matrix... " + nis.getName() );
 	    char[] acids = new char[SIZE];
 			
 		// Initialize the acids array to null values (ascii = 0)
@@ -135,10 +135,26 @@ public class MatrixLoader {
 		}
 
 		try {
+			int current_acid = 0; 
+			
 			// Read the scores
 			while ((line = reader.readLine()) != null) {
-				tokenizer = new StringTokenizer ( line.trim( ) );
-				char acid = tokenizer.nextToken().charAt(0);
+				line = line.trim();
+				tokenizer = new StringTokenizer ( line );
+
+				// check if first char of matrix is the amino acids
+				char acid = line.charAt(0);
+				
+				if (Character.isLetter(acid) || acid == '*')
+				{
+					tokenizer.nextToken();
+				}
+				else
+				{
+					// if not the case, use same order as specified in first row
+					acid = acids[current_acid++];
+				}
+				
 				for (int i = 0; i < SIZE; i++) {
 					if (acids[i] != 0 && tokenizer.hasMoreTokens()) {
 						scores[acids[i]][acid] = scores[acid][acids[i]] = Float.parseFloat(tokenizer.nextToken()); 

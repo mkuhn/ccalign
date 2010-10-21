@@ -19,6 +19,7 @@
 package jaligner.matrix;
 
 import java.io.Serializable;
+import java.util.Collections;
 
 /**
  * Scoring matrix.
@@ -58,6 +59,17 @@ public class Matrix implements Serializable {
      * @return Returns the scores.
      */
     public float[][] getScores() {
+    	char[] aa = "ARNDCEQGHILKMFPSTWYV".toCharArray();
+    	for (char c1 : aa)
+    	{
+    		float max = 0;
+        	for (char c2 : aa)
+    		{
+        		float f = this.scores[c1][c2];
+    			if (f > max) { max = f; };
+    		}
+    		assert max > 0 : this.id + ": " + c1;
+    	}
         return this.scores;
     }
     

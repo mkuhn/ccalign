@@ -35,8 +35,6 @@ import org.biojavax.SimpleNamespace;
 import org.biojavax.bio.db.HashRichSequenceDB;
 import org.biojavax.bio.seq.*;
 
-import com.sun.tools.javac.util.List;
-
 /**
  * Example of using JAligner API to align P53 human against
  * P53 mouse using Smith-Waterman-Gotoh algorithm.
@@ -107,7 +105,12 @@ public class Example {
 	    	        
 	    	        System.out.println ( alignment.getSummary() );
 	    	        System.out.println ( new Pair().format(alignment) );
-	    	        
+
+	    	        System.out.println ( ">"+alignment.getName1() );
+	    	        System.out.println ( alignment.getSequence1() );
+	    	        System.out.println ( ">"+alignment.getName2() );
+	    	        System.out.println ( alignment.getSequence2() );
+
 	    	        results.add(s1.getName()+"\t"+s2.getName()+"\t"+alignment.getScore()+"\t"+alignment.getCoilMatches());
             	}
         	}

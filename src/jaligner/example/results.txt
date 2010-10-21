@@ -8,3 +8,40 @@ SASS6_XEN	F59A2.6	234.0	108
 SASS6_XEN	C18C4.5	194.0	164
 SASS6_XEN	myo-3	190.0	80
 SASS6_XEN	sas-6	197.0	95
+
+
+enforce coil-coil registers, use only blosum (punishment: 1)
+
+SASS6_HSA	F59A2.6	196.5	217
+SASS6_HSA	C18C4.5	199.5	248
+SASS6_HSA	myo-3	194.0	230
+SASS6_HSA	sas-6	164.5	152
+SASS6_XEN	F59A2.6	184.0	177
+SASS6_XEN	C18C4.5	176.0	220
+SASS6_XEN	myo-3	136.5	193
+SASS6_XEN	sas-6	148.0	135
+
+use similarity score of 0 if at least one of the proteins is in a coil, add 0.25 if CC match
+
+SASS6_HSA	F59A2.6	56.25	137
+SASS6_HSA	C18C4.5	50.0	194
+SASS6_HSA	myo-3	78.0	260
+SASS6_HSA	sas-6	111.25	175
+SASS6_XEN	F59A2.6	50.75	135
+SASS6_XEN	C18C4.5	46.25	175
+SASS6_XEN	myo-3	47.75	191
+SASS6_XEN	sas-6	115.75	133
+
+
+use similarity score of 0 if at least one of the proteins is in a coil, add 0.25 if CC match, punish -0.25 if CC mismatch
+
+SASS6_HSA	F59A2.6	44.25	213
+SASS6_HSA	C18C4.5	49.25	151
+SASS6_HSA	myo-3	73.25	260
+SASS6_HSA	sas-6	106.5	175
+SASS6_XEN	F59A2.6	39.25	164
+SASS6_XEN	C18C4.5	35.25	160
+SASS6_XEN	myo-3	45.5	191
+SASS6_XEN	sas-6	107.5	133
+
+
