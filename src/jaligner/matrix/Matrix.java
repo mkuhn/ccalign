@@ -56,9 +56,9 @@ public class Matrix implements Serializable {
     }
     
     /**
-     * @return Returns the scores.
+     * @return Check scores.
      */
-    public float[][] getScores() {
+    public boolean checkScores() {
     	char[] aa = "ARNDCEQGHILKMFPSTWYV".toCharArray();
     	for (char c1 : aa)
     	{
@@ -69,7 +69,16 @@ public class Matrix implements Serializable {
     			if (f > max) { max = f; };
     		}
     		assert max > 0 : this.id + ": " + c1;
+    		return false; 
     	}
+        return true;
+    }
+
+    /**
+     * @return Returns the scores.
+     */
+    public float[][] getScores() {
+    	assert this.checkScores();
         return this.scores;
     }
     
