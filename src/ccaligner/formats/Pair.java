@@ -16,10 +16,11 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-package jaligner.formats;
+package ccaligner.formats;
 
-import jaligner.Alignment;
-import jaligner.util.Commons;
+import ccaligner.Alignment;
+import ccaligner.formats.Format;
+import ccaligner.util.Commons;
 
 /**
  * <a href="http://www.hgmp.mrc.ac.uk/Software/EMBOSS/Themes/AlignExamples/align.pair">Pair</a> format.

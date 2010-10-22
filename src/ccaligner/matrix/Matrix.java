@@ -16,10 +16,9 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-package jaligner.matrix;
+package ccaligner.matrix;
 
 import java.io.Serializable;
-import java.util.Collections;
 
 /**
  * Scoring matrix.
@@ -69,7 +68,7 @@ public class Matrix implements Serializable {
     			if (f > max) { max = f; };
     		}
     		assert max > 0 : this.id + ": " + c1;
-    		return false; 
+    		if (max <= 0) return false; 
     	}
         return true;
     }

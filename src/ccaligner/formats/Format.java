@@ -1,5 +1,5 @@
 /*
- * $Id: Markups.java,v 1.2 2004/11/30 05:10:29 ahmed Exp $
+ * $Id: Format.java,v 1.4 2004/11/30 05:10:29 ahmed Exp $
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -16,32 +16,44 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-package jaligner;
+package ccaligner.formats;
+
+import ccaligner.Alignment;
 
 /**
- * Markups line characters.
+ * Abstract format
  * 
  * @author Ahmed Moustafa (ahmed@users.sf.net)
  */
 
-public abstract class Markups {
-	/**
-	 * Markup line identity character
-	 */
-	public static final char IDENTITY	= '|';
+public abstract class Format {
 	
 	/**
-	 * Markup line similarity character
+	 * Format id
 	 */
-	public static final char SIMILARITY	= ':';
+	private String id = null;
 	
 	/**
-	 * Markup line gap character
+	 * Formats alignment
+	 * @param alignment
+	 * @return formatted alignment
+	 * @see Alignment
 	 */
-	public static final char GAP		= ' ';
+	public abstract String format(Alignment alignment);
 	
 	/**
-	 * Markup line mismatch character
+	 * Sets format id
+	 * @param id to set
 	 */
-	public static final char MISMATCH	= '.';
+	public void setId (String id) {
+		this.id =  id;
+	}
+	
+	/**
+	 * Returns format id
+	 * @return id
+	 */
+	public String getId ( ) {
+		return this.id == null ? this.getClass().getName() : this.id;
+	}
 }

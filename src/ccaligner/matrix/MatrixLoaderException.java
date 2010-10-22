@@ -1,5 +1,5 @@
 /*
- * $Id: Format.java,v 1.4 2004/11/30 05:10:29 ahmed Exp $
+ * @author Ahmed Moustafa (ahmed at users.sourceforge.net)
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -16,44 +16,24 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-package jaligner.formats;
-
-import jaligner.Alignment;
+package ccaligner.matrix;
 
 /**
- * Abstract format
  * 
  * @author Ahmed Moustafa (ahmed@users.sf.net)
  */
 
-public abstract class Format {
-	
+public class MatrixLoaderException extends Exception {
+
 	/**
-	 * Format id
+     * 
+     */
+    private static final long serialVersionUID = 3906364935142586680L;
+
+    /**
+	 * @param message
 	 */
-	private String id = null;
-	
-	/**
-	 * Formats alignment
-	 * @param alignment
-	 * @return formatted alignment
-	 * @see Alignment
-	 */
-	public abstract String format(Alignment alignment);
-	
-	/**
-	 * Sets format id
-	 * @param id to set
-	 */
-	public void setId (String id) {
-		this.id =  id;
-	}
-	
-	/**
-	 * Returns format id
-	 * @return id
-	 */
-	public String getId ( ) {
-		return this.id == null ? this.getClass().getName() : this.id;
+	public MatrixLoaderException(String message) {
+		super(message);
 	}
 }

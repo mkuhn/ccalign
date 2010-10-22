@@ -16,9 +16,9 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-package jaligner;
+package ccaligner;
 
-import jaligner.matrix.Matrix;
+import ccaligner.matrix.Matrix;
 
 import java.util.ArrayList;
 import java.util.logging.Logger;

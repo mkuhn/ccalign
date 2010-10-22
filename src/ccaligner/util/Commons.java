@@ -16,7 +16,9 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-package jaligner.util;
+package ccaligner.util;
+
+import ccaligner.util.Commons;
 
 import java.net.JarURLConnection;
 import java.net.URL;
@@ -172,7 +174,7 @@ public abstract class Commons {
 	private static String getManifestBuildTimestamp() {
 		JarURLConnection connection = null;
 		JarFile jarFile = null;
-		URL url = Commons.class.getClassLoader().getResource("jaligner");
+		URL url = Commons.class.getClassLoader().getResource("ccaligner");
 		try {
 			// Get jar connection
 			connection = (JarURLConnection) url.openConnection();

@@ -1,5 +1,5 @@
 /*
- * @author Ahmed Moustafa (ahmed at users.sourceforge.net)
+ * $Id: Markups.java,v 1.2 2004/11/30 05:10:29 ahmed Exp $
  * 
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -16,24 +16,32 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-package jaligner.matrix;
+package ccaligner;
 
 /**
+ * Markups line characters.
  * 
  * @author Ahmed Moustafa (ahmed@users.sf.net)
  */
 
-public class MatrixLoaderException extends Exception {
-
+public abstract class Markups {
 	/**
-     * 
-     */
-    private static final long serialVersionUID = 3906364935142586680L;
-
-    /**
-	 * @param message
+	 * Markup line identity character
 	 */
-	public MatrixLoaderException(String message) {
-		super(message);
-	}
+	public static final char IDENTITY	= '|';
+	
+	/**
+	 * Markup line similarity character
+	 */
+	public static final char SIMILARITY	= ':';
+	
+	/**
+	 * Markup line gap character
+	 */
+	public static final char GAP		= ' ';
+	
+	/**
+	 * Markup line mismatch character
+	 */
+	public static final char MISMATCH	= '.';
 }

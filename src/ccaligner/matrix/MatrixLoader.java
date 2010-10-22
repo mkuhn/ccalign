@@ -16,10 +16,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-package jaligner.matrix;
-
-import jaligner.ui.filechooser.NamedInputStream;
-import jaligner.util.Commons;
+package ccaligner.matrix;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -37,6 +34,9 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import ccaligner.util.Commons;
+
 
 /**
  * Scoring matrices loader from a jar file or a file system.
@@ -59,7 +59,7 @@ public class MatrixLoader {
 	/**
 	 * The path to the matrices within the package.
 	 */
-	private static final String MATRICES_HOME = "jaligner/matrix/matrices/";
+	private static final String MATRICES_HOME = "ccaligner/matrix/matrices/";
 	
 	/**
 	 * Logger
@@ -92,7 +92,7 @@ public class MatrixLoader {
 		    }
 		}
 
-		return load(new NamedInputStream(matrix, is));
+		return load(matrix, is);
 	}
 
 	/**
@@ -103,8 +103,8 @@ public class MatrixLoader {
 	 * @see Matrix
 	 * @see NamedInputStream
 	 */
-	public static Matrix load (NamedInputStream nis) throws MatrixLoaderException {
-	    logger.info("Loading scoring matrix... " + nis.getName() );
+	public static Matrix load (String matrix, InputStream is) throws MatrixLoaderException {
+	    logger.info("Loading scoring matrix... " + matrix );
 	    char[] acids = new char[SIZE];
 			
 		// Initialize the acids array to null values (ascii = 0)
@@ -114,7 +114,7 @@ public class MatrixLoader {
 			
 		float[][] scores = new float[SIZE][SIZE];
 
-		BufferedReader reader = new BufferedReader(new InputStreamReader(nis.getInputStream()));
+		BufferedReader reader = new BufferedReader(new InputStreamReader(is));
 		
 		String line;
 			
@@ -167,7 +167,7 @@ public class MatrixLoader {
 	        throw new MatrixLoaderException (message);
 	    }
 	    logger.info("Finished loading scoring matrix");
-		return new Matrix(nis.getName(), scores);
+		return new Matrix(matrix, scores);
 	}
 
 	/**

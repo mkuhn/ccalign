@@ -16,13 +16,7 @@
  * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
-package jaligner.example;
-
-import jaligner.Alignment;
-import jaligner.SmithWatermanGotoh;
-import jaligner.formats.Pair;
-import jaligner.matrix.Matrix;
-import jaligner.matrix.MatrixLoader;
+package ccaligner.example;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -34,6 +28,11 @@ import org.biojava.bio.symbol.*;
 import org.biojavax.SimpleNamespace;
 import org.biojavax.bio.db.HashRichSequenceDB;
 import org.biojavax.bio.seq.*;
+
+import ccaligner.*;
+import ccaligner.Alignment;
+import ccaligner.matrix.*;
+import ccaligner.formats.Pair;
 
 /**
  * Example of using JAligner API to align P53 human against
@@ -47,14 +46,14 @@ public class Example {
 	/**
 	 * 
 	 */
-	private static final String SAMPLE_SEQUENCE_A = "src/jaligner/example/sequences/hsa.faa";
-	private static final String SAMPLE_PC_A = "src/jaligner/example/sequences/hsa_pc.faa";
+	private static final String SAMPLE_SEQUENCE_A = "src/ccaligner/example/sequences/hsa.faa";
+	private static final String SAMPLE_PC_A = "src/ccaligner/example/sequences/hsa_pc.faa";
 	
 	/**
 	 * 
 	 */
-	private static final String SAMPLE_SEQUENCE_B = "src/jaligner/example/sequences/cel.faa";
-	private static final String SAMPLE_PC_B = "src/jaligner/example/sequences/cel_pc.faa";
+	private static final String SAMPLE_SEQUENCE_B = "src/ccaligner/example/sequences/cel.faa";
+	private static final String SAMPLE_PC_B = "src/ccaligner/example/sequences/cel_pc.faa";
 	
 	/**
 	 * Logger
