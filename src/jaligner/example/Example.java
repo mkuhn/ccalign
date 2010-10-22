@@ -47,8 +47,8 @@ public class Example {
 	/**
 	 * 
 	 */
-	private static final String SAMPLE_SEQUENCE_A = "src/jaligner/example/sequences/sass6.faa";
-	private static final String SAMPLE_PC_A = "src/jaligner/example/sequences/sass6_pc.faa";
+	private static final String SAMPLE_SEQUENCE_A = "src/jaligner/example/sequences/hsa.faa";
+	private static final String SAMPLE_PC_A = "src/jaligner/example/sequences/hsa_pc.faa";
 	
 	/**
 	 * 
