@@ -20,16 +20,11 @@ package ccaligner.util;
 
 import ccaligner.util.Commons;
 
-import java.net.JarURLConnection;
-import java.net.URL;
-import java.util.jar.Attributes;
-import java.util.jar.JarFile;
-import java.util.jar.Manifest;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Global constants/varilables/settings
+ * Global constants/variables/settings
  * 
  * @author Ahmed Moustafa (ahmed@users.sf.net)
  */
@@ -40,16 +35,6 @@ public abstract class Commons {
 	 */
 	private static final Logger logger = Logger.getLogger(Commons.class
 			.getName());
-
-	/**
-	 * Build timestamp attribute in the manifest in the jar
-	 */
-	private static final String BUILD_TIMESTAMP = "Created-At";
-
-	/**
-	 *  
-	 */
-	private static final String currentRelease = getManifestBuildTimestamp();
 
 	/**
 	 * Default home directory
@@ -166,54 +151,4 @@ public abstract class Commons {
 		return jnlp;
 	}
 
-	/**
-	 * Gets the build teimstamp from the jar manifest
-	 * 
-	 * @return build timestamp
-	 */
-	private static String getManifestBuildTimestamp() {
-		JarURLConnection connection = null;
-		JarFile jarFile = null;
-		URL url = Commons.class.getClassLoader().getResource("ccaligner");
-		try {
-			// Get jar connection
-			connection = (JarURLConnection) url.openConnection();
-
-			// Get the jar file
-			jarFile = connection.getJarFile();
-
-			// Get the manifest
-			Manifest manifest = jarFile.getManifest();
-
-			// Get the manifest entries
-			Attributes attributes = manifest.getMainAttributes();
-
-			Attributes.Name name = new Attributes.Name(BUILD_TIMESTAMP);
-			return attributes.getValue(name);
-		} catch (Exception e) {
-			String message = "Failed getting the current release info: "
-					+ e.getMessage();
-			logger.log(Level.WARNING, message);
-		}
-		return null;
-	}
-
-	/**
-	 * Returns the current release version of JAligner
-	 * 
-	 * @return current release
-	 */
-	public static String getCurrentRelease() {
-		return currentRelease;
-	}
-
-	/**
-	 * Returns information about JAligner
-	 * 
-	 * @return information about JAligner
-	 */
-	public static String getJAlignerInfo() {
-		return "JAligner - Build: " + getCurrentRelease()
-				+ " - By: Ahmed Moustafa (ahmed@users.sf.net)";
-	}
 }

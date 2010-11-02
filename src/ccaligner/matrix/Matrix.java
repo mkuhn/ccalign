@@ -42,6 +42,12 @@ public class Matrix implements Serializable {
      */
     private float[][] scores = null;
     
+    
+    public Matrix() {
+        this.id = "zeroes";
+        this.scores = new float[127][127];
+    }
+    
     public Matrix(String id, float[][] scores) {
         this.id = id;
         this.scores = scores;
@@ -67,8 +73,16 @@ public class Matrix implements Serializable {
         		float f = this.scores[c1][c2];
     			if (f > max) { max = f; };
     		}
-    		assert max > 0 : this.id + ": " + c1;
-    		if (max <= 0) return false; 
+        	if (id.contentEquals("zeroes"))
+        	{
+        		assert max == 0 : this.id + ": " + c1;
+        		if (max > 0) return false; 
+        	}
+        	else
+        	{
+	    		assert max > 0 : this.id + ": " + c1;
+	    		if (max <= 0) return false;
+	        }
     	}
         return true;
     }

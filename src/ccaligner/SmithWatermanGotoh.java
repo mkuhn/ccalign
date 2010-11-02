@@ -65,22 +65,28 @@ public class SmithWatermanGotoh {
 	 *            open gap penalty
 	 * @param e
 	 *            extend gap penalty
+	 * @param c 
 	 * @return alignment object contains the two aligned sequences, the
 	 *         alignment score and alignment statistics
 	 * @see RichSequence
 	 * @see Matrix
 	 */
 	public static Alignment align(RichSequence s1, RichSequence s2, RichSequence pc1, RichSequence pc2, ArrayList<Matrix> matrices, Matrix blosum,
-			float o, float e) {
+			float o, float e, float c) {
 		logger.info("Started...");
 		long start = System.currentTimeMillis();
 		float[][] blosum_scores = blosum.getScores();
-		float[][][] coil_scores = new float[matrices.size()][][];
+		float[][][] coil_scores = null;
 		
-		for (int i=0; i<matrices.size(); i++)
+		if (matrices != null)
 		{
-			coil_scores[i] = matrices.get(i).getScores();
-	    }
+			coil_scores = new float[matrices.size()][][];
+			
+			for (int i=0; i<matrices.size(); i++)
+			{
+				coil_scores[i] = matrices.get(i).getScores();
+		    }
+		}
  
 		SmithWatermanGotoh sw = new SmithWatermanGotoh();
 
@@ -112,7 +118,7 @@ public class SmithWatermanGotoh {
 			}
 		}
 
-		Cell cell = sw.construct(s1, s2, pc1, pc2, blosum_scores, coil_scores, o, e, pointers,
+		Cell cell = sw.construct(s1, s2, pc1, pc2, blosum_scores, coil_scores, o, e, c, pointers,
 				sizesOfVerticalGaps, sizesOfHorizontalGaps);
 		Alignment alignment = sw.traceback(s1, s2, pc1, pc2, blosum, pointers, cell,
 				sizesOfVerticalGaps, sizesOfHorizontalGaps);
@@ -142,10 +148,12 @@ public class SmithWatermanGotoh {
 	 *            open gap penalty
 	 * @param e
 	 *            extend gap penalty
+	 * @param c3 
+	 * 			  coil mismatch penalty
 	 * @return The cell where the traceback starts.
 	 */
 	private Cell construct(RichSequence seq1, RichSequence seq2, RichSequence pc1, RichSequence pc2, float[][] blosum, float[][][] coil_scores, float o,
-			float e, byte[] pointers, short[] sizesOfVerticalGaps,
+			float e, float cm, byte[] pointers, short[] sizesOfVerticalGaps,
 			short[] sizesOfHorizontalGaps) {
 		logger.info("Started...");
 		long start = System.currentTimeMillis();
@@ -198,25 +206,32 @@ public class SmithWatermanGotoh {
 			vDiagonal = v[0];
 			for (int j = 1, l = k + 1; j < n; j++, l++) {
 				
-				r1 = c1[i-1];
-				r2 = c2[j-1];
-				
 				s1 = a1[i-1];
 				s2 = a2[j-1];
 
-				if (r1 >= 0 || r2 >= 0)
+				if (coil_scores != null)
 				{
-					// use coiled-coil matrix based on query sequence
-					similarityScore = coil_scores[((r1 >= 0)?r1:r2)][s1][s2]; 
+					r1 = c1[i-1];
+					r2 = c2[j-1];
 					
-					// at least one of the sequences is in a coil
-					if (r1 == r2)
+					if (r1 >= 0 || r2 >= 0)
 					{
-						// same register: reward
-						similarityScore += 0.25;
-					} else if (r1 >= 0 && r2 >= 0) {
-						// both are coils, but in different registers: punish
-						similarityScore -= 0.25;
+						// use coiled-coil matrix based on query sequence
+						similarityScore = coil_scores[((r1 >= 0)?r1:r2)][s1][s2]; 
+						
+						// at least one of the sequences is in a coil
+						if (r1 == r2)
+						{
+							// same register: reward
+							similarityScore += cm;
+						} else if (r1 >= 0 && r2 >= 0) {
+							// both are coils, but in different registers: punish
+							similarityScore -= cm;
+						}
+					}
+					else
+					{
+						similarityScore = blosum[s1][s2];
 					}
 				}
 				else

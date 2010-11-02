@@ -20,6 +20,7 @@ package ccaligner.run;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -66,15 +67,33 @@ public class Run {
 
 	private static Options getOptions()
 	{
-		
+		// general options
 		options.addOption("h", false, "show this help message");
 		options.addOption("v", true, "verbosity: 0 (default): print only warnings;\n1: print info messages");
+		options.addOption("a", false, "print alignment");
+		
+		// debugging / negative control options
 		options.addOption("D", false, "run debugging examples");
+		options.addOption("B", false, "use BLOSUM62 matrix at coiled-coil positions");
+		options.addOption("P", false, "plain Smith-Waterman: do not use coiled-coil correction");
+		options.addOption("N", false, "negative control: invert order of coiled-coil matrices");
+		
+		// db options
 		options.addOption("p1", true, "protein sequences 1");
 		options.addOption("c1", true, "coiled-coil prediction for protein sequences 1");
+		options.addOption("s1", true, "optional regex for a sequence to use out of db1");
 		options.addOption("p2", true, "protein sequences 1");
 		options.addOption("c2", true, "coiled-coil prediction for protein sequences 2");
+		options.addOption("s2", true, "optional regex for a sequence to use out of db2");
 
+		// S-W params
+		options.addOption("PE", true, "parameter: gap extension penalty");
+		options.addOption("PO", true, "parameter: gap open penalty");
+		options.addOption("PC", true, "parameter: coiled coil mismatch penalty");
+
+		// parse file name to determine parameters
+		options.addOption("F", true, "infer parameters from filename: keywords: blosum, pc0.1");
+		
 		return options;
 	}
 	
@@ -140,13 +159,14 @@ public class Run {
         	if(cmd.hasOption("D"))
         	{
             	logger.info("Running example...");
-            	db1 = loadSequences(SAMPLE_SEQUENCE_A);  
-            	db2 = loadSequences(SAMPLE_SEQUENCE_B);
-            	pcdb1 = loadSequences(SAMPLE_PC_A);
-            	pcdb2 = loadSequences(SAMPLE_PC_B);
+            	db1 = loadSequences(SAMPLE_SEQUENCE_A, cmd.getOptionValue("s1", ""));  
+            	db2 = loadSequences(SAMPLE_SEQUENCE_B, cmd.getOptionValue("s2", ""));
+            	pcdb1 = loadSequences(SAMPLE_PC_A, cmd.getOptionValue("s1", ""));
+            	pcdb2 = loadSequences(SAMPLE_PC_B, cmd.getOptionValue("s2", ""));
         	}
         	else
         	{
+        		// check if all needed params are there
         		ArrayList<String> missing = new ArrayList<String>();
         		for (String opt : "p1 p2 c1 c2".split(" "))
         		{
@@ -162,10 +182,10 @@ public class Run {
         			return;
         		}
         		
-            	db1 = loadSequences(cmd.getOptionValue("p1"));  
-            	db2 = loadSequences(cmd.getOptionValue("p2"));
-            	pcdb1 = loadSequences(cmd.getOptionValue("c1"));
-            	pcdb2 = loadSequences(cmd.getOptionValue("c2"));
+            	db1 = loadSequences(cmd.getOptionValue("p1"), cmd.getOptionValue("s1", ""));  
+            	db2 = loadSequences(cmd.getOptionValue("p2"), cmd.getOptionValue("s2", ""));
+            	pcdb1 = loadSequences(cmd.getOptionValue("c1"), cmd.getOptionValue("s1", ""));
+            	pcdb2 = loadSequences(cmd.getOptionValue("c2"), cmd.getOptionValue("s2", ""));
 
             	// check dbs for consistency
             	boolean err1 = checkDB(cmd.getOptionValue("c1"),db1,pcdb1);
@@ -173,21 +193,92 @@ public class Run {
             	if (err1 || err2) return;
         	} 
         	
+        	float paramGapOpen = 10.0f;
+        	if (cmd.hasOption("PO")) paramGapOpen = Float.valueOf(cmd.getOptionValue("PO")).floatValue();
+
+        	float paramGapExt= 0.5f;
+        	if (cmd.hasOption("PE")) paramGapExt = Float.valueOf(cmd.getOptionValue("PE")).floatValue();
+
+        	float paramCoil = 0.25f;
+        	if (cmd.hasOption("PC")) paramCoil = Float.valueOf(cmd.getOptionValue("PC")).floatValue();
+
+        	ArrayList<Matrix> matrices = null;
         	
-        	ArrayList<Matrix> matrices = new ArrayList<Matrix>();
+        	boolean coiled_coil_sw = !cmd.hasOption("P");
+        	boolean zero_matrix = cmd.hasOption("N");
+        	boolean blosum_matrix = cmd.hasOption("B");
         	
-        	for (char c : "abcdefg".toCharArray())
+        	if (cmd.hasOption("F"))
         	{
-        		Matrix matrix = MatrixLoader.load(c + "_blosum.iij");
-        		matrices.add(matrix);
+        		for (String token: cmd.getOptionValue("F").split("_"))
+        		{
+        			if (token.equals("ccalign")) { coiled_coil_sw = true; }
+        			else if (token.equals("swalign")) { coiled_coil_sw = false; }
+        			else if (token.equals("blosum")) { blosum_matrix = true; }
+        			else if (token.equals("zero")) { zero_matrix = true; }
+        			else if (token.startsWith("pc")) { paramCoil = Float.valueOf(token.substring(2)).floatValue(); }
+        			else 
+        			{
+        				throw new Exception("unknown token in command line: "+token);
+        			}
+        		}
+        	}
+        	
+        	System.out.println("# coiled-coil mismatch penalty: " + paramCoil);
+        	if (!coiled_coil_sw) { System.out.println("# plain Smith-Waterman search"); }
+        	else if (zero_matrix) { System.out.println("# using zero coiled-coil matrix"); }
+        	else if (blosum_matrix) { System.out.println("# using BLOSUM matrix"); }
+        	
+        	// load coiled coil matrices unless we want to use plain S-W for control purposes
+        	if (coiled_coil_sw)
+        	{
+        		matrices = new ArrayList<Matrix>();
+        	
+	        	for (char c : "abcdefg".toCharArray())
+	        	{
+	        		Matrix matrix;
+	        		if (zero_matrix)
+	        		{
+	        			matrix = new Matrix();
+	        		}
+	        		else if (blosum_matrix)
+	        		{
+	        			matrix = MatrixLoader.load("BLOSUM62");
+	        		} 
+	        		else
+	        		{
+	        			matrix = MatrixLoader.load(c + "_blosum.iij");
+	        		}
+	        		matrices.add(matrix);
+	        	}
         	}
         	
         	Matrix blosum = MatrixLoader.load("BLOSUM62");
 
-
-        	ArrayList<String> results = new ArrayList<String>();
+        	// set up estimates for remaining time
+        	int sum1 = 0, sum2 = 0;
         	
         	RichSequenceIterator it1 = db1.getRichSequenceIterator();
+        	while (it1.hasNext())
+        	{
+        		RichSequence s1 = it1.nextRichSequence();
+        		sum1 += s1.length();
+        	}
+
+        	it1 = db2.getRichSequenceIterator();
+        	while (it1.hasNext())
+        	{
+        		RichSequence s1 = it1.nextRichSequence();
+        		sum2 += s1.length();
+        	}
+
+        	long total_todo = sum1*sum2; 
+        	long total_done = 0;
+    		long start = System.currentTimeMillis();
+    		long last_notification = start - 9000; // print first notification after 1 second 
+
+    		// perform S-W alignments
+        	it1 = db1.getRichSequenceIterator();
         	while (it1.hasNext())
         	{
         		RichSequence s1 = it1.nextRichSequence();
@@ -201,41 +292,64 @@ public class Run {
         			RichSequence s2 = it2.nextRichSequence();
         			RichSequence pc2 = pcdb2.getRichSequence(s2.getName());
 	
-        			Alignment alignment = SmithWatermanGotoh.align(s1, s2, pc1, pc2, matrices, blosum, 10f, 0.5f);
+        			Alignment alignment = SmithWatermanGotoh.align(s1, s2, pc1, pc2, matrices, blosum, paramGapOpen, paramGapExt, paramCoil);
+
+        			if (cmd.hasOption("a"))
+        			{
+		    	        System.out.println ( alignment.getSummary() );
+		    	        System.out.println ( new Pair().format(alignment) );
+	
+		    	        System.out.println ( ">"+alignment.getName1() );
+		    	        System.out.println ( alignment.getSequence1() );
+		    	        System.out.println ( ">"+alignment.getName2() );
+		    	        System.out.println ( alignment.getSequence2() );
+        			}
+		    	        
+        			String result = s1.getName()+"\t"+s2.getName()+"\t"+alignment.getScore()+"\t"+alignment.getCoilMatches();
+        			System.out.println(result);
 	    	        
-	    	        System.out.println ( alignment.getSummary() );
-	    	        System.out.println ( new Pair().format(alignment) );
-
-	    	        System.out.println ( ">"+alignment.getName1() );
-	    	        System.out.println ( alignment.getSequence1() );
-	    	        System.out.println ( ">"+alignment.getName2() );
-	    	        System.out.println ( alignment.getSequence2() );
-
-	    	        results.add(s1.getName()+"\t"+s2.getName()+"\t"+alignment.getScore()+"\t"+alignment.getCoilMatches());
+	    	        total_done += s1.length()*s2.length();
+	    	        
+	    	        // print notification every 10 seconds on remaining time 
+	        		long now = System.currentTimeMillis();
+	        		
+	        		if (now - last_notification > 10000)
+	        		{
+	        			long total_est = (total_todo * (now-start)) / total_done;
+	        			long perc_done = 100 * total_done / total_todo;
+	        			
+	        			long millis = total_est - (now-start);
+	        			String left = String.format("%d:%02d:%02d",
+	        					TimeUnit.MILLISECONDS.toHours(millis),
+	        				    TimeUnit.MILLISECONDS.toMinutes(millis) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(millis)),
+	        				    TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(millis))
+	        				);
+	        			
+	        			System.err.println( perc_done + "% done, remaining: " + left);
+	        			
+	        			last_notification = now;
+	        		}
             	}
         	}
         	
 	        
 	        logger.info("Finished running example");
 	        
-	        for (String s:results)
-	        {
-	        	System.out.println(s);
-	        }
-	        
         } catch (Exception e) {
         	logger.log(Level.SEVERE, "Failed running example: " + e.getMessage(), e);
+        	System.exit(1);
         }
     }
 	
 	/**
 	 * 
 	 * @param path location of the sequence
+	 * @param filter 
 	 * @return sequence string
 	 * @throws IOException
 	 * @throws BioException 
 	 */
-	private static HashRichSequenceDB loadSequences(String path) throws IOException, BioException {
+	private static HashRichSequenceDB loadSequences(String path, String filter) throws IOException, BioException {
 		
 		Reader reader = null;
 		
@@ -263,7 +377,7 @@ public class Run {
 	    RichSequenceIterator iterator = RichSequence.IOTools.readFasta(new BufferedReader(reader), alpha.getTokenization("token"), ns);
 	    while (iterator.hasNext()) {
 	    	RichSequence seq = iterator.nextRichSequence();
-	        db.addRichSequence(seq);
+	    	if (filter.isEmpty() || seq.getName().matches(filter)) db.addRichSequence(seq);
 	    }
 	    
 		return db;
