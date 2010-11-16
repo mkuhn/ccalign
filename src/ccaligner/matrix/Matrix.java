@@ -91,10 +91,32 @@ public class Matrix implements Serializable {
      * @return Returns the scores.
      */
     public float[][] getScores() {
-    	assert this.checkScores();
-        return this.scores;
+    	assert checkScores();
+        return scores;
     }
     
+    public void scaleScores(float f)
+    {
+    	for (int i=0; i<127; i++)
+    	{
+        	for (int j=0; j<127; j++)
+        	{
+        		scores[i][j] *= f;
+        	}
+    	}
+    }
+
+    public void roundScores()
+    {
+    	for (int i=0; i<127; i++)
+    	{
+        	for (int j=0; j<127; j++)
+        	{
+        		scores[i][j] = Math.round(scores[i][j]);
+        	}
+    	}
+    }
+
     /**
      * 
      * @param a
