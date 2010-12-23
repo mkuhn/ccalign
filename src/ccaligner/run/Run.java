@@ -22,7 +22,7 @@ import java.io.*;
 import java.math.BigInteger;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -46,6 +46,83 @@ import ccaligner.formats.Pair;
  *
  * @author Ahmed Moustafa (ahmed@users.sf.net)
  */
+
+class DoRun // implements Runnable
+{
+	// PE 1, PO 10
+	private float lambda = 0.2288567f;
+	private float kappa = 0.3101115f;
+	private DecimalFormat f1 = new DecimalFormat("0.00");
+
+	private RichSequence s1;
+	private RichSequence s2;
+	private RichSequence pc1;
+	private RichSequence pc2;
+	private float bitscore_cutoff;
+	private float paramGapOpen;
+	private float paramGapExt;
+	private float paramCoilMatch;
+	private float paramCoilMismatch;
+	private ArrayList<Matrix> matrices;
+	private Matrix blosum;
+	private boolean print_alignment;
+	
+	public DoRun(RichSequence s1, RichSequence s2, RichSequence pc1,
+			RichSequence pc2, float bitscore_cutoff, float paramGapOpen,
+			float paramGapExt, float paramCoilMatch, float paramCoilMismatch, ArrayList<Matrix> matrices,
+			Matrix blosum, boolean print_alignment) {
+		this.s1 = s1;
+		this.s2 = s2;
+		this.pc1 = pc1;
+		this.pc2 = pc2;
+		this.bitscore_cutoff = bitscore_cutoff;
+		this.paramGapOpen = paramGapOpen;
+		this.paramGapExt = paramGapExt;
+		this.paramCoilMatch = paramCoilMatch;
+		this.paramCoilMismatch = paramCoilMismatch;
+		this.matrices = matrices;
+		this.blosum = blosum;
+		this.print_alignment = print_alignment;
+	}
+
+
+
+	public void run() throws Exception
+	{
+		try
+		{
+			Alignment alignment = SmithWatermanGotoh.align(s1, s2, pc1, pc2, matrices, blosum, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch);
+
+			if (print_alignment)
+			{
+    	        System.out.println ( alignment.getSummary() );
+    	        System.out.println ( new Pair().format(alignment) );
+
+    	        System.out.println ( ">"+alignment.getName1() );
+    	        System.out.println ( alignment.getSequence1() );
+    	        System.out.println ( ">"+alignment.getName2() );
+    	        System.out.println ( alignment.getSequence2() );
+			}
+			
+			float score = alignment.getScore();
+			double bitscore = (lambda * score - Math.log(kappa)) / Math.log(2);
+			// we cannot calculate a comparable e-value to blast as blast uses an "effective search space"
+			
+			if (bitscore >= bitscore_cutoff)
+			{
+    			String result = s1.getName()+ "\t"+s2.getName()+"\t"+f1.format(bitscore)+"\t"+f1.format(100.0*alignment.getIdentity()/alignment.getSequence1().length)+"\t"
+					+ alignment.getStart1() + "\t" + (alignment.getStart1()+alignment.getSequence1().length)+"\t"
+					+ alignment.getStart2() + "\t" + (alignment.getStart2()+alignment.getSequence2().length);
+    			System.out.println(result);
+			}
+		}
+		catch (Exception e)
+		{
+			System.err.println("Exception when aligning "+s1.getName()+" and "+s2.getName());
+			throw e;
+		}
+	}
+}
 
 public class Run {
 	
@@ -96,7 +173,8 @@ public class Run {
 		// S-W params
 		options.addOption("PE", true, "parameter: gap extension penalty");
 		options.addOption("PO", true, "parameter: gap open penalty");
-		options.addOption("PC", true, "parameter: coiled coil mismatch penalty");
+		options.addOption("PC", true, "parameter: coiled coil match reward");
+		options.addOption("PX", true, "parameter: coiled coil mismatch penalty");
 
 		// parse file name to determine parameters
 		options.addOption("F", true, "infer parameters from filename: keywords: blosum, pc0.1");
@@ -225,8 +303,11 @@ public class Run {
         	float paramGapExt = 1.0f;
         	if (cmd.hasOption("PE")) paramGapExt = Float.valueOf(cmd.getOptionValue("PE")).floatValue();
 
-        	float paramCoil = 0.15f;
-        	if (cmd.hasOption("PC")) paramCoil = Float.valueOf(cmd.getOptionValue("PC")).floatValue();
+        	float paramCoilMatch = 0.15f;
+        	if (cmd.hasOption("PC")) paramCoilMatch = Float.valueOf(cmd.getOptionValue("PC")).floatValue();
+
+        	float paramCoilMismatch = paramCoilMatch;
+        	if (cmd.hasOption("PX")) paramCoilMismatch = Float.valueOf(cmd.getOptionValue("PX")).floatValue();
 
         	ArrayList<Matrix> matrices = null;
         	
@@ -236,6 +317,7 @@ public class Run {
         	boolean exact_matrix = !cmd.hasOption("LR");
         	boolean round_matrix = cmd.hasOption("R");
         	int adjusted_matrix = 0;
+        	boolean print_alignment = cmd.hasOption("a");
         	
         	float bitscore_cutoff = Float.valueOf(cmd.getOptionValue("b", "10"));
         	
@@ -243,6 +325,10 @@ public class Run {
         	
         	if (cmd.hasOption("F"))
         	{
+        		boolean mismatch_set = false;
+        		boolean match_set = false;
+        		
+        		// parse individual options
         		for (String token: cmd.getOptionValue("F").split("_"))
         		{
         			if (token.equals("ccalign")) { coiled_coil_sw = true; }
@@ -258,15 +344,23 @@ public class Run {
         			else if (token.equals("adjusted2x")) { adjusted_matrix = 2; exact_matrix = true; }
         			else if (token.equals("adjusted2xr")) { adjusted_matrix = 2; exact_matrix = true; round_matrix = true; }
         			else if (token.equals("zero")) { zero_matrix = true; }
-        			else if (token.startsWith("pc")) { paramCoil = Float.valueOf(token.substring(2)).floatValue(); }
+        			else if (token.startsWith("pc")) { paramCoilMatch = Float.valueOf(token.substring(2)).floatValue(); match_set = true; }
+        			else if (token.startsWith("px")) { paramCoilMismatch = Float.valueOf(token.substring(2)).floatValue(); mismatch_set = true;  }
         			else 
         			{
         				throw new Exception("unknown token in command line: "+token);
         			}
         		}
+        		
+        		// special case: if no mismatch penalty has been specified, use match reward
+        		if (match_set && !mismatch_set)
+        		{
+        			paramCoilMismatch = paramCoilMatch;
+        		}
         	}
         	
-        	System.out.println("# coiled-coil mismatch penalty: " + paramCoil);
+        	System.out.println("# coiled-coil match reward: " + paramCoilMatch);
+        	System.out.println("# coiled-coil mismatch penalty: " + paramCoilMismatch);
         	if (!coiled_coil_sw) { System.out.println("# plain Smith-Waterman search"); }
         	if (zero_matrix) { System.out.println("# using zero coiled-coil matrix"); }
         	if (blosum_matrix) { System.out.println("# using BLOSUM matrix"); }
@@ -355,10 +449,15 @@ public class Run {
     		long start = System.currentTimeMillis();
     		long last_notification = start - 9000; // print first notification after 1 second 
     		System.err.println(total_todo);
-    		// PE 1, PO 10
-    		float lambda = 0.2288567f;
-    		float kappa = 0.3101115f;
     		
+//    	    int poolSize = 2;
+//    	    int maxPoolSize = 2;
+//    	    long keepAliveTime = 10;
+//    	 
+//    	    ThreadPoolExecutor threadPool = null;
+//    	    ArrayBlockingQueue<Runnable> queue = new ArrayBlockingQueue<Runnable>(5);
+//            threadPool = new ThreadPoolExecutor(poolSize, maxPoolSize, keepAliveTime, TimeUnit.SECONDS, queue);
+            
     		// perform S-W alignments
         	it1 = db1.getRichSequenceIterator();
         	while (it1.hasNext())
@@ -380,40 +479,9 @@ public class Run {
         			
         			RichSequence pc2 = pcdb2.getRichSequence(s2.getName());
 	
-        			try
-        			{
-        				Alignment alignment = SmithWatermanGotoh.align(s1, s2, pc1, pc2, matrices, blosum, paramGapOpen, paramGapExt, paramCoil);
-
-            			if (cmd.hasOption("a"))
-            			{
-    		    	        System.out.println ( alignment.getSummary() );
-    		    	        System.out.println ( new Pair().format(alignment) );
-    	
-    		    	        System.out.println ( ">"+alignment.getName1() );
-    		    	        System.out.println ( alignment.getSequence1() );
-    		    	        System.out.println ( ">"+alignment.getName2() );
-    		    	        System.out.println ( alignment.getSequence2() );
-            			}
-            			
-            			float score = alignment.getScore();
-            			double bitscore = (lambda * score - Math.log(kappa)) / Math.log(2);
-            			// we cannot calculate a comparable e-value to blast as blast uses an "effective search space"
-            			
-            			if (bitscore >= bitscore_cutoff)
-            			{
-                			String result = s1.getName()+ "\t"+s2.getName()+"\t"+f1.format(bitscore)+"\t"+f1.format(100.0*alignment.getIdentity()/alignment.getSequence1().length)+"\t"
-    							+ alignment.getStart1() + "\t" + (alignment.getStart1()+alignment.getSequence1().length)+"\t"
-    							+ alignment.getStart2() + "\t" + (alignment.getStart2()+alignment.getSequence2().length);
-                			System.out.println(result);
-            			}
-}
-        			catch (Exception e)
-        			{
-        				System.err.println("Exception when aligning "+s1.getName()+" and "+s2.getName());
-        				throw e;
-        			}
-
-
+        			
+        			DoRun task = new DoRun(s1, s2, pc1, pc2, bitscore_cutoff, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, print_alignment);
+        	        task.run();
 	    	        
 	    	        // print notification every 10 seconds on remaining time 
 	        		long now = System.currentTimeMillis();
@@ -437,7 +505,7 @@ public class Run {
             	}
         	}
         	
-	        
+        	System.out.println("#DONE");
 	        logger.info("Finished running ccaligner");
 	        
         } catch (Exception e) {

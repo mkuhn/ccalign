@@ -72,7 +72,7 @@ public class SmithWatermanGotoh {
 	 * @see Matrix
 	 */
 	public static Alignment align(RichSequence s1, RichSequence s2, RichSequence pc1, RichSequence pc2, ArrayList<Matrix> matrices, Matrix blosum,
-			float o, float e, float c) {
+			float o, float e, float c_match, float c_mismatch) {
 		logger.info("Started...");
 		long start = System.currentTimeMillis();
 		float[][] blosum_scores = blosum.getScores();
@@ -118,7 +118,7 @@ public class SmithWatermanGotoh {
 			}
 		}
 
-		Cell cell = sw.construct(s1, s2, pc1, pc2, blosum_scores, coil_scores, o, e, c, pointers,
+		Cell cell = sw.construct(s1, s2, pc1, pc2, blosum_scores, coil_scores, o, e, c_match, c_mismatch, pointers,
 				sizesOfVerticalGaps, sizesOfHorizontalGaps);
 		Alignment alignment = sw.traceback(s1, s2, pc1, pc2, blosum, pointers, cell,
 				sizesOfVerticalGaps, sizesOfHorizontalGaps);
@@ -153,7 +153,7 @@ public class SmithWatermanGotoh {
 	 * @return The cell where the traceback starts.
 	 */
 	private Cell construct(RichSequence seq1, RichSequence seq2, RichSequence pc1, RichSequence pc2, float[][] blosum, float[][][] coil_scores, float o,
-			float e, float cm, byte[] pointers, short[] sizesOfVerticalGaps,
+			float e, float c_match, float c_mismatch, byte[] pointers, short[] sizesOfVerticalGaps,
 			short[] sizesOfHorizontalGaps) {
 		logger.info("Started...");
 		long start = System.currentTimeMillis();
@@ -223,10 +223,10 @@ public class SmithWatermanGotoh {
 						if (r1 == r2)
 						{
 							// same register: reward
-							similarityScore += cm;
+							similarityScore += c_match;
 						} else if (r1 >= 0 && r2 >= 0) {
 							// both are coils, but in different registers: punish
-							similarityScore -= cm;
+							similarityScore -= c_mismatch;
 						}
 					}
 					else
