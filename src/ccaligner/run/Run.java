@@ -18,27 +18,42 @@
 
 package ccaligner.run;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.math.BigInteger;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.concurrent.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import org.apache.commons.cli.*;
-
-import org.biojava.bio.*;
-import org.biojava.bio.seq.db.IllegalIDException;
-import org.biojava.bio.symbol.*;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.GnuParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Options;
+import org.biojava.bio.BioException;
+import org.biojava.bio.symbol.Alphabet;
+import org.biojava.bio.symbol.AlphabetManager;
 import org.biojavax.SimpleNamespace;
-import org.biojavax.bio.db.HashRichSequenceDB;
-import org.biojavax.bio.seq.*;
+import org.biojavax.bio.seq.RichSequence;
+import org.biojavax.bio.seq.RichSequenceIterator;
 
-import ccaligner.*;
 import ccaligner.Alignment;
-import ccaligner.matrix.*;
+import ccaligner.Residue;
+import ccaligner.Sequence;
+import ccaligner.SmithWatermanGotoh;
 import ccaligner.formats.Pair;
+import ccaligner.matrix.Matrix;
+import ccaligner.matrix.MatrixLoader;
 
 /**
  * Example of using JAligner API to align P53 human against
@@ -54,10 +69,8 @@ class DoRun // implements Runnable
 	private float kappa = 0.3101115f;
 	private DecimalFormat f1 = new DecimalFormat("0.00");
 
-	private RichSequence s1;
-	private RichSequence s2;
-	private RichSequence pc1;
-	private RichSequence pc2;
+	private Sequence seq1;
+	private Sequence seq2;
 	private float bitscore_cutoff;
 	private float paramGapOpen;
 	private float paramGapExt;
@@ -67,14 +80,11 @@ class DoRun // implements Runnable
 	private Matrix blosum;
 	private boolean print_alignment;
 	
-	public DoRun(RichSequence s1, RichSequence s2, RichSequence pc1,
-			RichSequence pc2, float bitscore_cutoff, float paramGapOpen,
+	public DoRun(Sequence seq1, Sequence seq2, float bitscore_cutoff, float paramGapOpen,
 			float paramGapExt, float paramCoilMatch, float paramCoilMismatch, ArrayList<Matrix> matrices,
 			Matrix blosum, boolean print_alignment) {
-		this.s1 = s1;
-		this.s2 = s2;
-		this.pc1 = pc1;
-		this.pc2 = pc2;
+		this.seq1 = seq1;
+		this.seq2 = seq2;
 		this.bitscore_cutoff = bitscore_cutoff;
 		this.paramGapOpen = paramGapOpen;
 		this.paramGapExt = paramGapExt;
@@ -91,7 +101,7 @@ class DoRun // implements Runnable
 	{
 		try
 		{
-			Alignment alignment = SmithWatermanGotoh.align(s1, s2, pc1, pc2, matrices, blosum, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch);
+			Alignment alignment = SmithWatermanGotoh.align(seq1, seq2, matrices, blosum, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch);
 
 			if (print_alignment)
 			{
@@ -110,7 +120,7 @@ class DoRun // implements Runnable
 			
 			if (bitscore >= bitscore_cutoff)
 			{
-    			String result = s1.getName()+ "\t"+s2.getName()+"\t"+f1.format(bitscore)+"\t"+f1.format(100.0*alignment.getIdentity()/alignment.getSequence1().length)+"\t"
+    			String result = seq1.name + "\t"+ seq2.name +"\t"+f1.format(bitscore)+"\t"+f1.format(100.0*alignment.getIdentity()/alignment.getSequence1().length)+"\t"
 					+ alignment.getStart1() + "\t" + (alignment.getStart1()+alignment.getSequence1().length)+"\t"
 					+ alignment.getStart2() + "\t" + (alignment.getStart2()+alignment.getSequence2().length);
     			System.out.println(result);
@@ -118,7 +128,7 @@ class DoRun // implements Runnable
 		}
 		catch (Exception e)
 		{
-			System.err.println("Exception when aligning "+s1.getName()+" and "+s2.getName());
+			System.err.println("Exception when aligning "+seq1.name+" and "+seq2.name);
 			throw e;
 		}
 	}
@@ -130,13 +140,13 @@ public class Run {
 	 * 
 	 */
 	private static final String SAMPLE_SEQUENCE_A = "hsa.faa";
-	private static final String SAMPLE_PC_A = "hsa_pc.faa";
+	private static final String SAMPLE_PC_A = "hsa.tsv";
 	
 	/**
 	 * 
 	 */
 	private static final String SAMPLE_SEQUENCE_B = "cel.faa";
-	private static final String SAMPLE_PC_B = "cel_pc.faa";
+	private static final String SAMPLE_PC_B = "cel.tsv";
 	
 	/**
 	 * Logger
@@ -188,37 +198,7 @@ public class Run {
 		h.printHelp("ccaligner -p1 proteins1.fasta -c1 coil_predicton1.fasta -p2 proteins1.fasta -c2 coil_predicton1.fasta", options);
 	}
 	
-	private static boolean checkDB(String pc_name, HashRichSequenceDB db, HashRichSequenceDB pcdb)
-	{
-    	RichSequenceIterator it = db.getRichSequenceIterator();
-    	boolean error_found = false;
-    	while (it.hasNext())
-    	{
-    		try
-    		{
-    			RichSequence s1 = it.nextRichSequence();
-	    		String name = s1.getName(); 
-	    		try
-	    		{
-	    			RichSequence s2 = pcdb.getRichSequence(name);
-	    			if (s1.length() != s2.length())
-	    			{
-		    			System.err.println("different lengths in "+pc_name+": "+name);
-		    			error_found = true; 
-	    			}
-	    		} catch (IllegalIDException e) {
-	    			System.err.println("missing from "+pc_name+": "+name);
-	    			error_found = true; 
-	    		}
-    		} catch (Exception e)
-    		{
-    			e.printStackTrace();
-    			error_found = true;
-    		}
-    	}
-    	return error_found;	
-	}
-	
+
 	/**
 	 * 
 	 * @param args
@@ -246,17 +226,16 @@ public class Run {
 				}
         	}
         	
-        	HashRichSequenceDB db1, db2, pcdb1, pcdb2;
+        	Sequence[] seqs1;
+        	Sequence[] seqs2;
 
         	boolean symm = cmd.hasOption("s");
         	
         	if(cmd.hasOption("D"))
         	{
             	logger.info("Running example...");
-            	db1 = loadSequences(SAMPLE_SEQUENCE_A, cmd.getOptionValue("s1", ""));  
-            	db2 = loadSequences(SAMPLE_SEQUENCE_B, cmd.getOptionValue("s2", ""));
-            	pcdb1 = loadSequences(SAMPLE_PC_A, cmd.getOptionValue("s1", ""));
-            	pcdb2 = loadSequences(SAMPLE_PC_B, cmd.getOptionValue("s2", ""));
+            	seqs1 = loadSequences(SAMPLE_SEQUENCE_A, SAMPLE_PC_A, cmd.getOptionValue("s1", ""));  
+            	seqs2 = loadSequences(SAMPLE_SEQUENCE_B, SAMPLE_PC_B, cmd.getOptionValue("s2", ""));
         	}
         	else
         	{
@@ -277,24 +256,16 @@ public class Run {
         			return;
         		}
         		
-            	db1 = loadSequences(cmd.getOptionValue("p1"), cmd.getOptionValue("s1", ""));
-            	pcdb1 = loadSequences(cmd.getOptionValue("c1"), cmd.getOptionValue("s1", ""));
+            	seqs1 = loadSequences(cmd.getOptionValue("p1"), cmd.getOptionValue("c1"), cmd.getOptionValue("s1", ""));
             	
             	if (symm)
             	{
-            		db2 = db1;
-            		pcdb2 = pcdb1;
+            		seqs2 = seqs1;
             	}
             	else
             	{
-                	db2 = loadSequences(cmd.getOptionValue("p2"), cmd.getOptionValue("s2", ""));
-                	pcdb2 = loadSequences(cmd.getOptionValue("c2"), cmd.getOptionValue("s2", ""));
+                	seqs2 = loadSequences(cmd.getOptionValue("p2"), cmd.getOptionValue("c2"), cmd.getOptionValue("s2", ""));
             	}
-
-            	// check dbs for consistency
-            	boolean err1 = checkDB(cmd.getOptionValue("c1"),db1,pcdb1);
-            	boolean err2 = symm ? err1 : checkDB(cmd.getOptionValue("c2"),db2,pcdb2);
-            	if (err1 || err2) return;
         	} 
         	
         	float paramGapOpen = 10.0f;
@@ -326,7 +297,7 @@ public class Run {
         	if (cmd.hasOption("F"))
         	{
         		boolean mismatch_set = false;
-        		boolean match_set = false;
+        		boolean match_set = false;	
         		
         		// parse individual options
         		for (String token: cmd.getOptionValue("F").split("_"))
@@ -428,22 +399,17 @@ public class Run {
         	// set up estimates for remaining time
         	int sum1 = 0, sum2 = 0;
 
-        	RichSequenceIterator it1 = db1.getRichSequenceIterator();
-        	while (it1.hasNext())
+        	for (Sequence s : seqs1)
         	{
-        		RichSequence s1 = it1.nextRichSequence();
-        		sum1 += s1.length();
+        		sum1 += s.residues.length;
         	}
 
-        	BigInteger total_todo;
-        	
-        	it1 = db2.getRichSequenceIterator();
-        	while (it1.hasNext())
+        	for (Sequence s : seqs2)
         	{
-        		RichSequence s1 = it1.nextRichSequence();
-        		sum2 += s1.length();
+        		sum2 += s.residues.length;
         	}
-        	total_todo = BigInteger.valueOf(sum1).multiply(BigInteger.valueOf(sum2)); 
+
+        	BigInteger total_todo = BigInteger.valueOf(sum1).multiply(BigInteger.valueOf(sum2)); 
 	        	
         	BigInteger total_done = BigInteger.valueOf(0);
     		long start = System.currentTimeMillis();
@@ -459,28 +425,16 @@ public class Run {
 //            threadPool = new ThreadPoolExecutor(poolSize, maxPoolSize, keepAliveTime, TimeUnit.SECONDS, queue);
             
     		// perform S-W alignments
-        	it1 = db1.getRichSequenceIterator();
-        	while (it1.hasNext())
+        	for (Sequence seq1 : seqs1)
         	{
-        		RichSequence s1 = it1.nextRichSequence();
-        		RichSequence pc1 = pcdb1.getRichSequence(s1.getName());
-
-        		assert s1.length() == pc1.length() : s1.getName();
-        		
-    			RichSequenceIterator it2 = db2.getRichSequenceIterator();
-        		while (it2.hasNext())
+        		for (Sequence seq2 : seqs2)
             	{
-        			RichSequence s2 = it2.nextRichSequence();
-        			
-        			total_done = total_done.add(BigInteger.valueOf(s1.length()*s2.length()));
+        			total_done = total_done.add(BigInteger.valueOf(seq1.residues.length*seq2.residues.length));
 
         			// in the symmetrical case, only do upper triangle
-        			if (symm && (s1.getName().compareTo(s2.getName()) < 0)) continue;
+        			if (symm && (seq1.name.compareTo(seq2.name) < 0)) continue;
         			
-        			RichSequence pc2 = pcdb2.getRichSequence(s2.getName());
-	
-        			
-        			DoRun task = new DoRun(s1, s2, pc1, pc2, bitscore_cutoff, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, print_alignment);
+        			DoRun task = new DoRun(seq1, seq2, bitscore_cutoff, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, print_alignment);
         	        task.run();
 	    	        
 	    	        // print notification every 10 seconds on remaining time 
@@ -519,41 +473,124 @@ public class Run {
 	 * @param path location of the sequence
 	 * @param filter 
 	 * @return sequence string
-	 * @throws IOException
-	 * @throws BioException 
+	 * @throws Exception 
 	 */
-	private static HashRichSequenceDB loadSequences(String path, String filter) throws IOException, BioException {
+	private static Sequence[] loadSequences(String aa_path, String cc_path, String filter) throws Exception {
 		
-		Reader reader = null;
+		Alphabet alpha = AlphabetManager.alphabetForName("PROTEIN");
+	    SimpleNamespace ns = new SimpleNamespace("biojava");
+
+	    // first, read sequence from FASTA so that we know which sequences to align
+	    Map<String,Integer> sequence_lengths = new HashMap<String,Integer>(); 
+	    
+	    RichSequenceIterator iterator = RichSequence.IOTools.readFasta(new BufferedReader(openFile(aa_path)), alpha.getTokenization("token"), ns);
+	    while (iterator.hasNext()) {
+	    	RichSequence seq = iterator.nextRichSequence();
+	    	
+	    	if (filter.isEmpty() || seq.getName().matches(filter)) {
+	    		sequence_lengths.put(seq.getName(), seq.length());
+	    	}
+	    }
+
+	    // second, read coil predictions
+	    Map<String,Sequence> sequences = new HashMap<String,Sequence>(); 
+
+	    BufferedReader br = new BufferedReader(openFile(cc_path));
+	    
+	    ArrayList<Residue> residues = null;
+	    String name = null;
+	    
+	    for (String line = br.readLine(); line != null; line = br.readLine()) {
+	    	if (line.startsWith(">"))
+	    	{
+	    		if (residues != null)
+	    		{
+	    			sequences.put( name, new Sequence(name, residues.toArray(new Residue[0])) );
+	    		}
+	    		
+	    		name = extractName(line);
+	    		
+	    		if (sequence_lengths.containsKey(name))
+	    		{
+	    			residues = new ArrayList<Residue>(sequence_lengths.get(name));
+	    		}
+	    		else
+	    		{
+	    			residues = null;
+	    		}
+	    	}
+	    	else if (residues != null)
+	    	{
+	    		String[] l = line.split("\t");
+	    		char residue = l[0].charAt(0); 
+	    		int register = l[1].charAt(0) - 'a';
+	    		float pv = Float.valueOf(l[2]);
+	    		
+	    		if (pv > 0.1)
+	    		{
+	    			register = -1;
+	    		}
+	    		
+	    		residues.add( new Residue(residue, register, pv) );
+	    	}
+	    }
+	    
+		if (residues != null)
+		{
+			sequences.put( name, new Sequence(name, residues.toArray(new Residue[0])) );
+		}
+		
+		for (String seq_name : sequence_lengths.keySet())
+		{
+			if (sequences.containsKey(seq_name)) continue;
+			throw new Exception("Missing coiled-coil prediction for '"+seq_name+"' when reading from '"+cc_path+"'!");
+		}
+
+		return sequences.values().toArray(new Sequence[0]);
+
+	}
+	
+	
+	// header line
+	protected static final Pattern hp = Pattern.compile(">\\s*(\\S+)(\\s+(.*))?");
+	// description chunk
+	protected static final Pattern dp = Pattern.compile( "^(gi\\|(\\d+)\\|)?(\\w+)\\|(\\w+?)(\\.(\\d+))?\\|(\\w+)?$");
+	
+	private static String extractName(String line) throws Exception
+	{
+		Matcher m = hp.matcher(line);
+		if (!m.matches()) {
+			throw new Exception("Cannot parse FASTA header for '"+line+"'");
+		}
+
+		String name = m.group(1);
+
+		m = dp.matcher(name);
+		if (m.matches()) {
+			String accession = m.group(4);
+			name = m.group(7);
+			if (name==null) name=accession;
+		}
+		
+		return name;
+	}
+	
+	private static Reader openFile(String path) throws IOException {
 		
 		try
 		{
 			// try to read from file system
-			reader = new FileReader(path);
+			return new FileReader(path);
 		} catch (FileNotFoundException e)
 		{
 			// if the file doesn't exist, check if it is an internal example
 			try
 			{
-				reader = new InputStreamReader(Run.class.getClassLoader().getResourceAsStream("ccaligner/run/sequences/"+path));
+				return new InputStreamReader(Run.class.getClassLoader().getResourceAsStream("ccaligner/run/sequences/"+path));
 			} catch (Exception ee)
 			{
 				throw e; 
 			}
 		}
-		
-	    Alphabet alpha = AlphabetManager.alphabetForName("PROTEIN");
-	    SimpleNamespace ns = new SimpleNamespace("biojava");
-
-	    HashRichSequenceDB db = new HashRichSequenceDB();
-	    
-	    RichSequenceIterator iterator = RichSequence.IOTools.readFasta(new BufferedReader(reader), alpha.getTokenization("token"), ns);
-	    while (iterator.hasNext()) {
-	    	RichSequence seq = iterator.nextRichSequence();
-	    	if (filter.isEmpty() || seq.getName().matches(filter)) db.addRichSequence(seq);
-	    }
-	    
-		return db;
 	}
-
 }

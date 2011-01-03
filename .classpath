@@ -7,7 +7,7 @@
 	<classpathentry kind="lib" path="/Users/mkuhn/Dropbox/src/workspace/biojava-1.7.1-all/biojava-1.7.1/commons-collections-2.1.jar"/>
 	<classpathentry kind="lib" path="/Users/mkuhn/Dropbox/src/workspace/biojava-1.7.1-all/biojava-1.7.1/commons-cli.jar"/>
 	<classpathentry kind="lib" path="/Users/mkuhn/Dropbox/src/workspace/biojava-1.7.1-all/biojava-1.7.1/bytecode.jar"/>
-	<classpathentry kind="lib" path="/Users/mkuhn/Dropbox/src/workspace/biojava-1.7.1-all/biojava-1.7.1/biojava-1.7.1.jar">
+	<classpathentry kind="lib" path="/Users/mkuhn/Dropbox/src/workspace/biojava-1.7.1-all/biojava-1.7.1/biojava-1.7.1.jar" sourcepath="/Users/mkuhn/Dropbox/src/workspace/biojava-1.7.1-all/biojava-1.7.1/src">
 		<attributes>
 			<attribute name="javadoc_location" value="file:/Users/mkuhn/Dropbox/src/workspace/biojava-1.7.1-all/biojava-1.7.1/doc/biojava/"/>
 		</attributes>
