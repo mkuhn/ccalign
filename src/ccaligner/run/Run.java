@@ -27,8 +27,10 @@ import java.io.Reader;
 import java.math.BigInteger;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -40,7 +42,6 @@ import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
-import org.biojava.bio.BioException;
 import org.biojava.bio.symbol.Alphabet;
 import org.biojava.bio.symbol.AlphabetManager;
 import org.biojavax.SimpleNamespace;
@@ -48,7 +49,9 @@ import org.biojavax.bio.seq.RichSequence;
 import org.biojavax.bio.seq.RichSequenceIterator;
 
 import ccaligner.Alignment;
+import ccaligner.AlignmentResult;
 import ccaligner.Residue;
+import ccaligner.ResultList;
 import ccaligner.Sequence;
 import ccaligner.SmithWatermanGotoh;
 import ccaligner.formats.Pair;
@@ -64,14 +67,8 @@ import ccaligner.matrix.MatrixLoader;
 
 class DoRun // implements Runnable
 {
-	// PE 1, PO 10
-	private float lambda = 0.2288567f;
-	private float kappa = 0.3101115f;
-	private DecimalFormat f1 = new DecimalFormat("0.00");
-
 	private Sequence seq1;
 	private Sequence seq2;
-	private float bitscore_cutoff;
 	private float paramGapOpen;
 	private float paramGapExt;
 	private float paramCoilMatch;
@@ -80,12 +77,11 @@ class DoRun // implements Runnable
 	private Matrix blosum;
 	private boolean print_alignment;
 	
-	public DoRun(Sequence seq1, Sequence seq2, float bitscore_cutoff, float paramGapOpen,
+	public DoRun(Sequence seq1, Sequence seq2, float paramGapOpen,
 			float paramGapExt, float paramCoilMatch, float paramCoilMismatch, ArrayList<Matrix> matrices,
 			Matrix blosum, boolean print_alignment) {
 		this.seq1 = seq1;
 		this.seq2 = seq2;
-		this.bitscore_cutoff = bitscore_cutoff;
 		this.paramGapOpen = paramGapOpen;
 		this.paramGapExt = paramGapExt;
 		this.paramCoilMatch = paramCoilMatch;
@@ -97,7 +93,7 @@ class DoRun // implements Runnable
 
 
 
-	public void run() throws Exception
+	public AlignmentResult run() throws Exception
 	{
 		try
 		{
@@ -113,18 +109,8 @@ class DoRun // implements Runnable
     	        System.out.println ( ">"+alignment.getName2() );
     	        System.out.println ( alignment.getSequence2() );
 			}
-			
-			float score = alignment.getScore();
-			double bitscore = (lambda * score - Math.log(kappa)) / Math.log(2);
-			// we cannot calculate a comparable e-value to blast as blast uses an "effective search space"
-			
-			if (bitscore >= bitscore_cutoff)
-			{
-    			String result = seq1.name + "\t"+ seq2.name +"\t"+f1.format(bitscore)+"\t"+f1.format(100.0*alignment.getIdentity()/alignment.getSequence1().length)+"\t"
-					+ alignment.getStart1() + "\t" + (alignment.getStart1()+alignment.getSequence1().length)+"\t"
-					+ alignment.getStart2() + "\t" + (alignment.getStart2()+alignment.getSequence2().length);
-    			System.out.println(result);
-			}
+
+			return new AlignmentResult(alignment);
 		}
 		catch (Exception e)
 		{
@@ -161,6 +147,8 @@ public class Run {
 		options.addOption("v", true, "verbosity: 0 (default): print only warnings;\n1: print info messages");
 		options.addOption("a", false, "print alignment");
 		options.addOption("b", true, "bitscore cutoff");
+		options.addOption("r", true, "read previous (Smith-Waterman) results from this file");
+		options.addOption("rn", true, "the number of top hits that should be recomputed (in conjunction with -r)");
 		
 		// debugging / negative control options
 		options.addOption("D", false, "run debugging examples");
@@ -226,8 +214,8 @@ public class Run {
 				}
         	}
         	
-        	Sequence[] seqs1;
-        	Sequence[] seqs2;
+        	Map<String,Sequence> seqs1;
+        	Map<String,Sequence> seqs2;
 
         	boolean symm = cmd.hasOption("s");
         	
@@ -399,65 +387,72 @@ public class Run {
         	// set up estimates for remaining time
         	int sum1 = 0, sum2 = 0;
 
-        	for (Sequence s : seqs1)
+        	for (Sequence s : seqs1.values())
         	{
         		sum1 += s.residues.length;
         	}
 
-        	for (Sequence s : seqs2)
+        	for (Sequence s : seqs2.values())
         	{
         		sum2 += s.residues.length;
         	}
 
-        	BigInteger total_todo = BigInteger.valueOf(sum1).multiply(BigInteger.valueOf(sum2)); 
 	        	
-        	BigInteger total_done = BigInteger.valueOf(0);
-    		long start = System.currentTimeMillis();
-    		long last_notification = start - 9000; // print first notification after 1 second 
-    		System.err.println(total_todo);
-    		
-//    	    int poolSize = 2;
-//    	    int maxPoolSize = 2;
-//    	    long keepAliveTime = 10;
-//    	 
-//    	    ThreadPoolExecutor threadPool = null;
-//    	    ArrayBlockingQueue<Runnable> queue = new ArrayBlockingQueue<Runnable>(5);
-//            threadPool = new ThreadPoolExecutor(poolSize, maxPoolSize, keepAliveTime, TimeUnit.SECONDS, queue);
-            
-    		// perform S-W alignments
-        	for (Sequence seq1 : seqs1)
-        	{
-        		for (Sequence seq2 : seqs2)
+        	if (cmd.hasOption("r"))
+    		{
+            	BufferedReader br = new BufferedReader(openFile(cmd.getOptionValue("r")));
+            	String line;
+            	
+            	Map<String,ResultList> results1 = new HashMap<String,ResultList>(seqs1.size());
+            	Map<String,ResultList> results2 = new HashMap<String,ResultList>(seqs2.size());
+            	
+            	while ((line = br.readLine()) != null)
             	{
-        			total_done = total_done.add(BigInteger.valueOf(seq1.residues.length*seq2.residues.length));
-
-        			// in the symmetrical case, only do upper triangle
-        			if (symm && (seq1.name.compareTo(seq2.name) < 0)) continue;
-        			
-        			DoRun task = new DoRun(seq1, seq2, bitscore_cutoff, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, print_alignment);
-        	        task.run();
-	    	        
-	    	        // print notification every 10 seconds on remaining time 
-	        		long now = System.currentTimeMillis();
-	        		
-	        		if (now - last_notification > 10000)
-	        		{
-	        			long total_est = (total_todo.multiply(BigInteger.valueOf(now-start))).divide(total_done).longValue();
-	        			long perc_done = BigInteger.valueOf(100).multiply(total_done).divide(total_todo).longValue();
-	        			
-	        			long millis = Math.round(total_est - (now-start));
-	        			String left = String.format("%d:%02d:%02d",
-	        					TimeUnit.MILLISECONDS.toHours(millis),
-	        				    TimeUnit.MILLISECONDS.toMinutes(millis) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(millis)),
-	        				    TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(millis))
-	        				);
-	        			
-	        			System.err.println( perc_done + "% done, remaining: " + left);
-	        			
-	        			last_notification = now;
-	        		}
+            		if (line.startsWith("#")) continue;
+            		AlignmentResult ar = new AlignmentResult(line);
+            		String name = ar.getName1();
+            		ResultList rl = results1.get(name);
+            		if (rl == null)
+            		{
+            			rl = new ResultList();
+            			results1.put(name, rl);
+            		}
+            		rl.add(ar);
             	}
-        	}
+            	
+            	int to_check = 10;
+            	if (cmd.hasOption("rn")) to_check = Integer.valueOf(cmd.getOptionValue("rn"));
+            	
+            	// recompute(results1, null, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum);
+            	recompute(results1, results2, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, sum1);
+            	recompute(results2, null, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, sum2);
+    		}
+    		else
+    		{
+    			BigInteger total_done = BigInteger.valueOf(0);
+        		long start = System.currentTimeMillis();
+        		long last_notification = start - 9000; // print first notification after 1 second 
+
+        		BigInteger total_todo = BigInteger.valueOf(sum1).multiply(BigInteger.valueOf(sum2)); 
+
+            	// perform S-W alignments
+            	for (Sequence seq1 : seqs1.values())
+            	{
+            		for (Sequence seq2 : seqs2.values())
+                	{
+            			total_done = total_done.add(BigInteger.valueOf(seq1.residues.length*seq2.residues.length));
+
+            			// in the symmetrical case, only do upper triangle
+            			if (symm && (seq1.name.compareTo(seq2.name) < 0)) continue;
+            			
+            			DoRun task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, print_alignment);
+            			AlignmentResult result = task.run();
+            	        if (result.getBitscore() >= bitscore_cutoff) System.out.println(result.toString());
+    	    	        
+    	    	        last_notification = printProgress(total_todo, total_done, last_notification, start);
+                	}
+            	}    			
+    		}
         	
         	System.out.println("#DONE");
 	        logger.info("Finished running ccaligner");
@@ -468,6 +463,86 @@ public class Run {
         }
     }
 	
+	private static long printProgress(BigInteger total_todo, BigInteger total_done, long last_notification, long start)
+	{
+		// print notification every 10 seconds on remaining time 
+		long now = System.currentTimeMillis();
+		
+		if (now - last_notification > 10000)
+		{
+			long total_est = (total_todo.multiply(BigInteger.valueOf(now-start))).divide(total_done).longValue();
+			long perc_done = BigInteger.valueOf(100).multiply(total_done).divide(total_todo).longValue();
+			
+			long millis = Math.round(total_est - (now-start));
+			String left = String.format("%d:%02d:%02d",
+					TimeUnit.MILLISECONDS.toHours(millis),
+				    TimeUnit.MILLISECONDS.toMinutes(millis) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(millis)),
+				    TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(millis))
+				);
+			
+			System.err.println( perc_done + "% done, remaining: " + left);
+			
+			last_notification = now;
+		}
+		
+		return last_notification;
+	}
+	
+	private static void recompute(Map<String,ResultList> results1, Map<String,ResultList> results2, int to_check, Map<String,Sequence> seqs1, Map<String,Sequence> seqs2, 
+			float paramGapOpen, float paramGapExt, float paramCoilMatch, float paramCoilMismatch, ArrayList<Matrix> matrices,
+			Matrix blosum, int total_sequence_length) throws Exception
+	{
+		BigInteger total_done = BigInteger.valueOf(0);
+		long start = System.currentTimeMillis();
+		long last_notification = start - 9000; // print first notification after 1 second 
+
+		BigInteger total_todo = BigInteger.valueOf(total_sequence_length); 
+		
+		for (Entry<String, ResultList> entry : results1.entrySet())
+		{
+			ResultList rl = entry.getValue();
+			String entry_name = entry.getKey();
+			
+			Collection<AlignmentResult> to_recompute;
+			
+			while (!(to_recompute = rl.removeFromTop(to_check)).isEmpty())
+			{
+				for (AlignmentResult ar : to_recompute)
+				{
+        			DoRun task = new DoRun(seqs1.get(ar.getName1()), seqs2.get(ar.getName2()), paramGapOpen, paramGapExt, paramCoilMatch, 
+        									paramCoilMismatch, matrices, blosum, false);
+        			ar = task.run();
+        			rl.add(ar);
+				}
+			}
+			
+			for (AlignmentResult ar : rl)
+			{
+				if (results2 != null)
+				{
+	        		String name = ar.getName2();
+	        		ResultList rl2 = results2.get(name);
+	        		if (rl2 == null)
+	        		{
+	        			rl2 = new ResultList();
+	        			results2.put(name, rl2);
+	        		}
+	        		rl2.add(ar);
+				}
+				else
+				{
+					System.out.println(ar.toString());
+				}
+			}
+			
+			rl.clear();
+			
+			total_done = total_done.add(BigInteger.valueOf( (results2 == null ? seqs2 : seqs1).get(entry_name).residues.length ));
+	        last_notification = printProgress(total_todo, total_done, last_notification, start);
+		}
+	}
+	
+	
 	/**
 	 * 
 	 * @param path location of the sequence
@@ -475,7 +550,7 @@ public class Run {
 	 * @return sequence string
 	 * @throws Exception 
 	 */
-	private static Sequence[] loadSequences(String aa_path, String cc_path, String filter) throws Exception {
+	private static Map<String, Sequence> loadSequences(String aa_path, String cc_path, String filter) throws Exception {
 		
 		Alphabet alpha = AlphabetManager.alphabetForName("PROTEIN");
 	    SimpleNamespace ns = new SimpleNamespace("biojava");
@@ -546,8 +621,7 @@ public class Run {
 			throw new Exception("Missing coiled-coil prediction for '"+seq_name+"' when reading from '"+cc_path+"'!");
 		}
 
-		return sequences.values().toArray(new Sequence[0]);
-
+		return sequences;
 	}
 	
 	

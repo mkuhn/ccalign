@@ -31,6 +31,10 @@ import java.text.DecimalFormat;
 
 public class Alignment {
 
+	// PE 1, PO 10
+	private float lambda = 0.2288567f;
+	private float kappa = 0.3101115f;
+	
 	/**
 	 * Gap character
 	 */
@@ -218,6 +222,13 @@ public class Alignment {
 		return score;
 	}
 
+	/**
+	 * @return Returns the bit score.
+	 */
+	public float getBitscore() {
+		return (float) ((lambda * score - Math.log(kappa)) / Math.log(2));
+	}
+	
 	/**
 	 * @param score
 	 *            The score to set.
