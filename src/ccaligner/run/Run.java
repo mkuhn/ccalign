@@ -472,7 +472,7 @@ public class Run {
         					if (rl != null)
         					{
 	        					results1.put("", rl);
-	            				recompute(results1, null, recompute_pass, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, 0);
+	            				recompute(results1, null, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, 0);
 	            				results1.clear();
 		            			total_done = total_done.add(big1);
         					}
@@ -518,9 +518,9 @@ public class Run {
     			if (recompute_pass == 0)
     			{
     				System.err.println("starting first pass through alignments, no output expected yet");
-    				recompute(results1, results2, recompute_pass, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, sum1);
+    				recompute(results1, results2, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, sum1);
     				System.err.println("starting second pass through alignments, printing alignments");
-    				recompute(results2, null, recompute_pass, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, sum2);
+    				recompute(results2, null, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, sum2);
     			}
     		}
     		else
@@ -598,7 +598,7 @@ public class Run {
 		return last_notification;
 	}
 	
-	private static void recompute(Map<String,ResultList> results1, Map<String,ResultList> results2, int recompute_pass, int to_check, Map<String,Sequence> seqs1, Map<String,Sequence> seqs2, 
+	private static void recompute(Map<String,ResultList> results1, Map<String,ResultList> results2, int recompute_pass, float bitscore_cutoff, int to_check, Map<String,Sequence> seqs1, Map<String,Sequence> seqs2, 
 			float paramGapOpen, float paramGapExt, float paramCoilMatch, float paramCoilMismatch, ArrayList<Matrix> matrices,
 			Matrix blosum, int total_sequence_length) throws Exception
 	{
@@ -641,7 +641,7 @@ public class Run {
 								paramCoilMismatch, matrices, blosum, false);
 	        			
 	        			ar = task.run();
-	        			rl.add(ar);
+	        			if (ar.getBitscore() >= bitscore_cutoff) rl.add(ar);
 					}
 				}
 			}
