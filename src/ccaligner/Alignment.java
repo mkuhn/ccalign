@@ -226,7 +226,8 @@ public class Alignment {
 	 * @return Returns the bit score.
 	 */
 	public float getBitscore() {
-		return (float) ((lambda * score - Math.log(kappa)) / Math.log(2));
+//		return (float) ((lambda * score - Math.log(kappa)) / Math.log(2));
+		return score;
 	}
 	
 	/**

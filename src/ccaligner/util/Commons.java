@@ -18,10 +18,10 @@
 
 package ccaligner.util;
 
-import ccaligner.util.Commons;
-
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Global constants/variables/settings
@@ -149,6 +149,34 @@ public abstract class Commons {
 	 */
 	public static boolean isJnlp() {
 		return jnlp;
+	}
+
+	// header line
+	private static final Pattern hp = Pattern.compile("^>?\\s*(\\S+)(\\s+(.*))?");
+	// description chunk
+	private static final Pattern dp = Pattern.compile( "^(gi\\|(\\d+)\\|)?(\\w+)\\|(\\w+?)(\\.(\\d+))?\\|(\\w+)?$");
+	
+	/*
+	 * Extract sequence name from FASTA header file, the same way that BioJava does when 
+	 * reading a FASTA file.   
+	 */
+	public static String extractName(String line) throws Exception
+	{
+		Matcher m = hp.matcher(line);
+		if (!m.matches()) {
+			throw new Exception("Cannot parse FASTA header for '"+line+"'");
+		}
+	
+		String name = m.group(1);
+	
+		m = dp.matcher(name);
+		if (m.matches()) {
+			String accession = m.group(4);
+			name = m.group(7);
+			if (name==null) name=accession;
+		}
+		
+		return name;
 	}
 
 }

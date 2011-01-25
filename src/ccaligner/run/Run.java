@@ -34,7 +34,6 @@ import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.cli.CommandLine;
@@ -57,6 +56,7 @@ import ccaligner.SmithWatermanGotoh;
 import ccaligner.formats.Pair;
 import ccaligner.matrix.Matrix;
 import ccaligner.matrix.MatrixLoader;
+import ccaligner.util.Commons;
 
 /**
  * Example of using JAligner API to align P53 human against
@@ -112,6 +112,13 @@ class DoRun // implements Runnable
 
 			return new AlignmentResult(alignment);
 		}
+		catch (OutOfMemoryError e)
+		{
+			// if the sequences are too big to compare with the current memory limits, take not of this 
+			// for later re-calculation
+			System.err.println("Not enough memory to align "+seq1.name+" and "+seq2.name);
+			return new AlignmentResult(seq1.name, seq2.name, "ERROR: Out of memory");
+		}
 		catch (Exception e)
 		{
 			System.err.println("Exception when aligning "+seq1.name+" and "+seq2.name);
@@ -121,6 +128,9 @@ class DoRun // implements Runnable
 }
 
 public class Run {
+	
+	private static final BigInteger big0 = BigInteger.valueOf(0);
+	private static final BigInteger big1 = BigInteger.valueOf(1);
 	
 	/**
 	 * 
@@ -147,8 +157,9 @@ public class Run {
 		options.addOption("v", true, "verbosity: 0 (default): print only warnings;\n1: print info messages");
 		options.addOption("a", false, "print alignment");
 		options.addOption("b", true, "bitscore cutoff");
-		options.addOption("r", true, "read previous (Smith-Waterman) results from this file");
+		options.addOption("r", true, "read previous (Smith-Waterman) results from this file (or stdin if the parameter is '--')");
 		options.addOption("rn", true, "the number of top hits that should be recomputed (in conjunction with -r)");
+		options.addOption("rp", true, "1 or 2: recompute first or second protein row, not complete matrixl;\n-1: compute scores for missing proteins, e.g. due to out-of-memory errors");
 		
 		// debugging / negative control options
 		options.addOption("D", false, "run debugging examples");
@@ -397,35 +408,112 @@ public class Run {
         		sum2 += s.residues.length;
         	}
 
-	        	
         	if (cmd.hasOption("r"))
     		{
             	BufferedReader br = new BufferedReader(openFile(cmd.getOptionValue("r")));
             	String line;
-            	
-            	Map<String,ResultList> results1 = new HashMap<String,ResultList>(seqs1.size());
-            	Map<String,ResultList> results2 = new HashMap<String,ResultList>(seqs2.size());
-            	
-            	while ((line = br.readLine()) != null)
-            	{
-            		if (line.startsWith("#")) continue;
-            		AlignmentResult ar = new AlignmentResult(line);
-            		String name = ar.getName1();
-            		ResultList rl = results1.get(name);
-            		if (rl == null)
-            		{
-            			rl = new ResultList();
-            			results1.put(name, rl);
-            		}
-            		rl.add(ar);
-            	}
-            	
+
             	int to_check = 10;
             	if (cmd.hasOption("rn")) to_check = Integer.valueOf(cmd.getOptionValue("rn"));
+
+            	int recompute_pass = 0;
+            	if (cmd.hasOption("rp")) recompute_pass = Integer.valueOf(cmd.getOptionValue("rp"));
+
+            	Map<String,ResultList> results1;
+            	Map<String,ResultList> results2; 
             	
-            	// recompute(results1, null, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum);
-            	recompute(results1, results2, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, sum1);
-            	recompute(results2, null, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, sum2);
+            	if (recompute_pass == 0)
+            	{
+            		results1 = new HashMap<String,ResultList>(seqs1.size());
+            		results2 = new HashMap<String,ResultList>(seqs2.size());
+            	}
+            	else
+            	{
+            		results1 = new HashMap<String,ResultList>();
+            		results2 = new HashMap<String,ResultList>();
+            	}
+            	
+        		long start = System.currentTimeMillis();
+        		long last_notification = start - 9000; // print first notification after 1 second 
+
+            	BigInteger total_todo = BigInteger.valueOf(seqs1.size());
+            	BigInteger total_done = big0;
+        		ResultList rl = null;
+        		
+        		String last_name = "";
+        		
+            	while ((line = br.readLine()) != null)
+            	{
+            		if (line.startsWith("#")) 
+            		{
+            			if (recompute_pass == -1) System.out.println(line); 
+            			continue;
+            		}
+            		
+            		AlignmentResult ar = new AlignmentResult(line);
+            		
+            		if (ar.getBitscore() < bitscore_cutoff) continue;
+            		
+            		// for recompute_pass 1 or 2, recompute for first or second column 
+            		String name = (recompute_pass < 2) ? ar.getName1() :  ar.getName2();
+
+        			if (recompute_pass > 0)
+        			{
+        				if (!name.contentEquals(last_name))
+        				{
+        					if (rl != null)
+        					{
+	        					results1.put("", rl);
+	            				recompute(results1, null, recompute_pass, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, 0);
+	            				results1.clear();
+		            			total_done = total_done.add(big1);
+        					}
+                			rl = new ResultList();
+                			last_name = name;
+        				}
+
+        				rl.add(ar);
+        			}
+        			else if (recompute_pass == -1)
+        			{
+        				// only re-compute missing lines
+        				if (ar.getMessage() == null)
+        				{
+        					System.out.println(line);
+        				}
+        				else
+        				{
+                			DoRun task = new DoRun(seqs1.get(ar.getName1()), seqs2.get(ar.getName2()), paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, print_alignment);
+                			AlignmentResult result = task.run();
+                	        if (result.getBitscore() >= bitscore_cutoff) System.out.println(result.toString());
+        				}
+        			}
+        			else
+        			{
+        				// re-compute everything at once
+                		rl = results1.get(name);
+
+	            		if (rl == null)
+	            		{
+	               			rl = new ResultList();
+	               			results1.put(name, rl);
+	            			total_done = total_done.add(big1);
+	            		}
+
+	            		rl.add(ar);
+        			}
+        			
+            		
+            		last_notification = printProgress(total_todo, total_done, last_notification, start);
+            	}
+            	
+    			if (recompute_pass == 0)
+    			{
+    				System.err.println("starting first pass through alignments, no output expected yet");
+    				recompute(results1, results2, recompute_pass, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, sum1);
+    				System.err.println("starting second pass through alignments, printing alignments");
+    				recompute(results2, null, recompute_pass, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, sum2);
+    			}
     		}
     		else
     		{
@@ -447,7 +535,7 @@ public class Run {
             			
             			DoRun task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, print_alignment);
             			AlignmentResult result = task.run();
-            	        if (result.getBitscore() >= bitscore_cutoff) System.out.println(result.toString());
+            	        if (result.getBitscore() >= bitscore_cutoff || result.getMessage() != null) System.out.println(result.toString());
     	    	        
     	    	        last_notification = printProgress(total_todo, total_done, last_notification, start);
                 	}
@@ -468,19 +556,33 @@ public class Run {
 		// print notification every 10 seconds on remaining time 
 		long now = System.currentTimeMillis();
 		
-		if (now - last_notification > 10000)
+		if (now - last_notification > 10000 && total_done.compareTo(big0) != 0)
 		{
-			long total_est = (total_todo.multiply(BigInteger.valueOf(now-start))).divide(total_done).longValue();
-			long perc_done = BigInteger.valueOf(100).multiply(total_done).divide(total_todo).longValue();
-			
-			long millis = Math.round(total_est - (now-start));
-			String left = String.format("%d:%02d:%02d",
-					TimeUnit.MILLISECONDS.toHours(millis),
-				    TimeUnit.MILLISECONDS.toMinutes(millis) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(millis)),
-				    TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(millis))
-				);
-			
-			System.err.println( perc_done + "% done, remaining: " + left);
+			if (total_todo.compareTo(big0) == 1)
+			{
+				long total_est = (total_todo.multiply(BigInteger.valueOf(now-start))).divide(total_done).longValue();
+				long perc_done = BigInteger.valueOf(100).multiply(total_done).divide(total_todo).longValue();
+				
+				long millis = Math.round(total_est - (now-start));
+				String left = String.format("%d:%02d:%02d",
+						TimeUnit.MILLISECONDS.toHours(millis),
+					    TimeUnit.MILLISECONDS.toMinutes(millis) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(millis)),
+					    TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(millis))
+					);
+				
+				System.err.println( perc_done + "% done, remaining: " + left);
+			}
+			else
+			{
+				long millis = Math.round(now-start);
+				String left = String.format("%d:%02d:%02d",
+						TimeUnit.MILLISECONDS.toHours(millis),
+					    TimeUnit.MILLISECONDS.toMinutes(millis) - TimeUnit.HOURS.toMinutes(TimeUnit.MILLISECONDS.toHours(millis)),
+					    TimeUnit.MILLISECONDS.toSeconds(millis) - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(millis))
+					);
+				
+				System.err.println( "processed " + total_done.toString() + " sequences in " + left);
+			}
 			
 			last_notification = now;
 		}
@@ -488,13 +590,18 @@ public class Run {
 		return last_notification;
 	}
 	
-	private static void recompute(Map<String,ResultList> results1, Map<String,ResultList> results2, int to_check, Map<String,Sequence> seqs1, Map<String,Sequence> seqs2, 
+	private static void recompute(Map<String,ResultList> results1, Map<String,ResultList> results2, int recompute_pass, int to_check, Map<String,Sequence> seqs1, Map<String,Sequence> seqs2, 
 			float paramGapOpen, float paramGapExt, float paramCoilMatch, float paramCoilMismatch, ArrayList<Matrix> matrices,
 			Matrix blosum, int total_sequence_length) throws Exception
 	{
 		BigInteger total_done = BigInteger.valueOf(0);
-		long start = System.currentTimeMillis();
-		long last_notification = start - 9000; // print first notification after 1 second 
+		long start = 0, last_notification = 0; 
+
+		if (total_sequence_length > 0)
+		{
+			start = System.currentTimeMillis();
+			last_notification = start - 9000; // print first notification after 1 second
+		}
 
 		BigInteger total_todo = BigInteger.valueOf(total_sequence_length); 
 		
@@ -509,10 +616,25 @@ public class Run {
 			{
 				for (AlignmentResult ar : to_recompute)
 				{
-        			DoRun task = new DoRun(seqs1.get(ar.getName1()), seqs2.get(ar.getName2()), paramGapOpen, paramGapExt, paramCoilMatch, 
-        									paramCoilMismatch, matrices, blosum, false);
-        			ar = task.run();
-        			rl.add(ar);
+					Sequence seq1 = seqs1.get(ar.getName1());
+					if (seq1 == null) throw new Exception("Cannot find sequence in seqs1: " + ar.getName1());
+					Sequence seq2 = seqs2.get(ar.getName2());
+					if (seq2 == null) throw new Exception("Cannot find sequence in seqs2: " + ar.getName2());
+
+					// if the scores of the input are the same for non-CC proteins, can skip re-computing them
+//					if (seq1.min_pvalue > 0.1 & seq2.min_pvalue > 0.1)
+//					{
+//						ar.setMethod("SW-no-cc");
+//						rl.add(ar);
+//					}
+//					else
+					{
+	        			DoRun task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, 
+								paramCoilMismatch, matrices, blosum, false);
+	        			
+	        			ar = task.run();
+	        			rl.add(ar);
+					}
 				}
 			}
 			
@@ -537,8 +659,11 @@ public class Run {
 			
 			rl.clear();
 			
-			total_done = total_done.add(BigInteger.valueOf( (results2 == null ? seqs2 : seqs1).get(entry_name).residues.length ));
-	        last_notification = printProgress(total_todo, total_done, last_notification, start);
+			if (total_sequence_length > 0)
+			{
+				total_done = total_done.add(BigInteger.valueOf( (results2 == null ? seqs2 : seqs1).get(entry_name).residues.length ));
+		        last_notification = printProgress(total_todo, total_done, last_notification, start);
+			}
 		}
 	}
 	
@@ -583,7 +708,7 @@ public class Run {
 	    			sequences.put( name, new Sequence(name, residues.toArray(new Residue[0])) );
 	    		}
 	    		
-	    		name = extractName(line);
+	    		name = Commons.extractName(line);
 	    		
 	    		if (sequence_lengths.containsKey(name))
 	    		{
@@ -625,31 +750,13 @@ public class Run {
 	}
 	
 	
-	// header line
-	protected static final Pattern hp = Pattern.compile(">\\s*(\\S+)(\\s+(.*))?");
-	// description chunk
-	protected static final Pattern dp = Pattern.compile( "^(gi\\|(\\d+)\\|)?(\\w+)\\|(\\w+?)(\\.(\\d+))?\\|(\\w+)?$");
-	
-	private static String extractName(String line) throws Exception
-	{
-		Matcher m = hp.matcher(line);
-		if (!m.matches()) {
-			throw new Exception("Cannot parse FASTA header for '"+line+"'");
-		}
 
-		String name = m.group(1);
-
-		m = dp.matcher(name);
-		if (m.matches()) {
-			String accession = m.group(4);
-			name = m.group(7);
-			if (name==null) name=accession;
-		}
-		
-		return name;
-	}
-	
 	private static Reader openFile(String path) throws IOException {
+		
+		if (path.contentEquals("--"))
+		{
+			return new InputStreamReader(System.in);
+		}
 		
 		try
 		{
