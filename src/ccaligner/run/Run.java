@@ -408,6 +408,8 @@ public class Run {
         		sum2 += s.residues.length;
         	}
 
+        	// if this option is set, an existing set of scores is re-computed to avoid running
+        	// CCAlign on too many non-relevant proteins
         	if (cmd.hasOption("r"))
     		{
             	BufferedReader br = new BufferedReader(openFile(cmd.getOptionValue("r")));
@@ -424,11 +426,13 @@ public class Run {
             	
             	if (recompute_pass == 0)
             	{
+            		// keep matrix in memory
             		results1 = new HashMap<String,ResultList>(seqs1.size());
             		results2 = new HashMap<String,ResultList>(seqs2.size());
             	}
             	else
             	{
+            		// don't keep matrix in memory, still need this for temporary storage
             		results1 = new HashMap<String,ResultList>();
             		results2 = new HashMap<String,ResultList>();
             	}
@@ -437,6 +441,9 @@ public class Run {
         		long last_notification = start - 9000; // print first notification after 1 second 
 
             	BigInteger total_todo = BigInteger.valueOf(seqs1.size());
+            	
+            	if (recompute_pass == 2) total_todo = BigInteger.valueOf(seqs2.size());
+            	
             	BigInteger total_done = big0;
         		ResultList rl = null;
         		
@@ -444,6 +451,7 @@ public class Run {
         		
             	while ((line = br.readLine()) != null)
             	{
+            		// recompute_pass -1: just echo and recompute lines with errors
             		if (line.startsWith("#")) 
             		{
             			if (recompute_pass == -1) System.out.println(line); 
