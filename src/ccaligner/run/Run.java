@@ -688,6 +688,7 @@ public class Run {
 	    SimpleNamespace ns = new SimpleNamespace("biojava");
 
 	    // first, read sequence from FASTA so that we know which sequences to align
+	    // note: we don't store the sequences here, but only the name and length
 	    Map<String,Integer> sequence_lengths = new HashMap<String,Integer>(); 
 	    
 	    RichSequenceIterator iterator = RichSequence.IOTools.readFasta(new BufferedReader(openFile(aa_path)), alpha.getTokenization("token"), ns);
@@ -699,7 +700,7 @@ public class Run {
 	    	}
 	    }
 
-	    // second, read coil predictions
+	    // second, read coil predictions and protein sequence from the coiled coil prediction
 	    Map<String,Sequence> sequences = new HashMap<String,Sequence>(); 
 
 	    BufferedReader br = new BufferedReader(openFile(cc_path));
