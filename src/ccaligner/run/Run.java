@@ -34,7 +34,6 @@ import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -709,6 +708,7 @@ public class Run {
 	    String name = null;
 	    
 	    for (String line = br.readLine(); line != null; line = br.readLine()) {
+	    	// check here if we're interested in the prediction for this sequence
 	    	if (line.startsWith(">"))
 	    	{
 	    		if (residues != null)
@@ -730,6 +730,12 @@ public class Run {
 	    	else if (residues != null)
 	    	{
 	    		String[] l = line.split("\t");
+	    		
+	    		if (l.length != 3)
+				{
+					throw new Exception("Unrecognized format of coiled-coil prediction for '"+name+"' in '"+cc_path+"':\n"+line);
+				}
+	    		
 	    		char residue = l[0].charAt(0); 
 	    		int register = l[1].charAt(0) - 'a';
 	    		float pv = Float.valueOf(l[2]);
@@ -745,6 +751,11 @@ public class Run {
 	    
 		if (residues != null)
 		{
+			if (residues.size() != sequence_lengths.get(name))
+			{
+				throw new Exception("Coiled-coil prediction for '"+name+"' does not match size between '"+aa_path+"' and '"+cc_path+"'!");
+			}
+			
 			sequences.put( name, new Sequence(name, residues.toArray(new Residue[0])) );
 		}
 		
