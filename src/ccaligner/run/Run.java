@@ -159,6 +159,7 @@ public class Run {
 		options.addOption("r", true, "read previous (Smith-Waterman) results from this file (or stdin if the parameter is '--')");
 		options.addOption("rn", true, "the number of top hits that should be recomputed (in conjunction with -r)");
 		options.addOption("rp", true, "1 or 2: recompute first or second protein row, not complete matrixl;\n-1: compute scores for missing proteins, e.g. due to out-of-memory errors");
+		options.addOption("rx", false, "print warning for missing sequences (if not set: abort with error)(");
 		
 		// debugging / negative control options
 		options.addOption("D", false, "run debugging examples");
@@ -420,6 +421,8 @@ public class Run {
             	int recompute_pass = 0;
             	if (cmd.hasOption("rp")) recompute_pass = Integer.valueOf(cmd.getOptionValue("rp"));
 
+            	boolean skip_missing = cmd.hasOption("rx");
+            	
             	Map<String,ResultList> results1;
             	Map<String,ResultList> results2; 
             	
@@ -471,7 +474,7 @@ public class Run {
         					if (rl != null)
         					{
 	        					results1.put("", rl);
-	            				recompute(results1, null, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, 0);
+	            				recompute(results1, null, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, 0, skip_missing);
 	            				results1.clear();
 		            			total_done = total_done.add(big1);
         					}
@@ -517,9 +520,9 @@ public class Run {
     			if (recompute_pass == 0)
     			{
     				System.err.println("starting first pass through alignments, no output expected yet");
-    				recompute(results1, results2, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, sum1);
+    				recompute(results1, results2, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, sum1, skip_missing);
     				System.err.println("starting second pass through alignments, printing alignments");
-    				recompute(results2, null, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, sum2);
+    				recompute(results2, null, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, sum2, skip_missing);
     			}
     		}
     		else
@@ -599,7 +602,7 @@ public class Run {
 	
 	private static void recompute(Map<String,ResultList> results1, Map<String,ResultList> results2, int recompute_pass, float bitscore_cutoff, int to_check, Map<String,Sequence> seqs1, Map<String,Sequence> seqs2, 
 			float paramGapOpen, float paramGapExt, float paramCoilMatch, float paramCoilMismatch, ArrayList<Matrix> matrices,
-			Matrix blosum, int total_sequence_length) throws Exception
+			Matrix blosum, int total_sequence_length, boolean skip_missing) throws Exception
 	{
 		BigInteger total_done = BigInteger.valueOf(0);
 		long start = 0, last_notification = 0; 
@@ -624,9 +627,31 @@ public class Run {
 				for (AlignmentResult ar : to_recompute)
 				{
 					Sequence seq1 = seqs1.get(ar.getName1());
-					if (seq1 == null) throw new Exception("Cannot find sequence in seqs1: " + ar.getName1());
+					if (seq1 == null)
+					{
+						if (skip_missing)
+						{
+							logger.warning("Missing sequence from seq1: " + ar.getName1());
+							continue;
+						}
+						else
+						{
+							throw new Exception("Cannot find sequence in seqs1: " + ar.getName1());
+						}
+					}
 					Sequence seq2 = seqs2.get(ar.getName2());
-					if (seq2 == null) throw new Exception("Cannot find sequence in seqs2: " + ar.getName2());
+					if (seq2 == null)
+					{
+						if (skip_missing)
+						{
+							logger.warning("Missing sequence from seq2: " + ar.getName2());
+							continue;
+						}
+						else
+						{
+							throw new Exception("Cannot find sequence in seqs2: " + ar.getName2());
+						}
+					}
 
 					// if the scores of the input are the same for non-CC proteins, can skip re-computing them
 //					if (seq1.min_pvalue > 0.1 & seq2.min_pvalue > 0.1)
