@@ -413,8 +413,7 @@ public class Run {
         	if (cmd.hasOption("r"))
     		{
             	BufferedReader br = new BufferedReader(openFile(cmd.getOptionValue("r")));
-            	String line;
-
+            	
             	int to_check = 10;
             	if (cmd.hasOption("rn")) to_check = Integer.valueOf(cmd.getOptionValue("rn"));
 
@@ -451,21 +450,63 @@ public class Run {
         		
         		String last_name = "";
         		
-            	while ((line = br.readLine()) != null)
+        		boolean eof = false;
+        		
+            	while (!eof)
             	{
-            		// recompute_pass -1: just echo and recompute lines with errors
-            		if (line.startsWith("#")) 
+            		String line = br.readLine();
+            		String name = "";
+            		AlignmentResult ar = null;
+            		
+            		if (line == null)
             		{
-            			if (recompute_pass == -1) System.out.println(line); 
-            			continue;
+            			eof = true;
             		}
-            		
-            		AlignmentResult ar = new AlignmentResult(line);
-            		
-            		if (ar.getBitscore() < bitscore_cutoff) continue;
-            		
-            		// for recompute_pass 1 or 2, recompute for first or second column 
-            		String name = (recompute_pass < 2) ? ar.getName1() :  ar.getName2();
+            		else
+            		{
+                		// recompute_pass -1: just echo and recompute lines with errors
+                		if (line.startsWith("#")) 
+                		{
+                			if (recompute_pass == -1) System.out.println(line); 
+                			continue;
+                		}
+            			
+                		ar = new AlignmentResult(line);
+                		
+                		if (ar.getBitscore() < bitscore_cutoff) continue;
+
+                		// for recompute_pass 1 or 2, recompute for first or second column 
+                		name = (recompute_pass < 2) ? ar.getName1() :  ar.getName2();
+                		
+                		if (recompute_pass == -1)
+            			{
+            				// only re-compute missing lines
+            				if (ar.getMessage() == null)
+            				{
+            					System.out.println(line);
+            				}
+            				else
+            				{
+                    			DoRun task = new DoRun(seqs1.get(ar.getName1()), seqs2.get(ar.getName2()), paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, print_alignment);
+                    			AlignmentResult result = task.run();
+                    	        if (result.getBitscore() >= bitscore_cutoff) System.out.println(result.toString());
+            				}
+            			}
+            			else if (recompute_pass == 0)
+            			{
+            				// re-compute everything at once
+                    		rl = results1.get(name);
+
+    	            		if (rl == null)
+    	            		{
+    	               			rl = new ResultList();
+    	               			results1.put(name, rl);
+    	            			total_done = total_done.add(big1);
+    	            		}
+
+    	            		rl.add(ar);
+            			}
+            		}
 
         			if (recompute_pass > 0)
         			{
@@ -482,38 +523,9 @@ public class Run {
                 			last_name = name;
         				}
 
-        				rl.add(ar);
-        			}
-        			else if (recompute_pass == -1)
-        			{
-        				// only re-compute missing lines
-        				if (ar.getMessage() == null)
-        				{
-        					System.out.println(line);
-        				}
-        				else
-        				{
-                			DoRun task = new DoRun(seqs1.get(ar.getName1()), seqs2.get(ar.getName2()), paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, print_alignment);
-                			AlignmentResult result = task.run();
-                	        if (result.getBitscore() >= bitscore_cutoff) System.out.println(result.toString());
-        				}
-        			}
-        			else
-        			{
-        				// re-compute everything at once
-                		rl = results1.get(name);
-
-	            		if (rl == null)
-	            		{
-	               			rl = new ResultList();
-	               			results1.put(name, rl);
-	            			total_done = total_done.add(big1);
-	            		}
-
-	            		rl.add(ar);
+        				if (ar != null) rl.add(ar);
         			}
         			
-            		
             		last_notification = printProgress(total_todo, total_done, last_notification, start);
             	}
             	
