@@ -3,17 +3,17 @@ package ccaligner;
 public class Sequence {
 	public final String name;
 	public final Residue[] residues;
-	public final float min_pvalue;
+	public final float max_prob;
 
 	public Sequence(String name, Residue[] residues) {
 		this.name = name;
 		this.residues = residues;
 		
-		float pv = 1;
+		float prob = 0;
 		for (Residue r : residues)
 		{
-			if (r.cc_pvalue < pv) pv = r.cc_pvalue; 
+			if (r.cc_prob > prob) prob = r.cc_prob; 
 		}
-		min_pvalue = pv;
+		max_prob = prob;
 	}
 }

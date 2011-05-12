@@ -27,6 +27,7 @@ import java.io.Reader;
 import java.math.BigInteger;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -769,21 +770,26 @@ public class Run {
 	    	{
 	    		String[] l = line.split("\t");
 	    		
-	    		if (l.length != 3)
+	    		if (l.length != 10)
 				{
 					throw new Exception("Unrecognized format of coiled-coil prediction for '"+name+"' in '"+cc_path+"':\n"+line);
 				}
 	    		
 	    		char residue = l[0].charAt(0); 
 	    		int register = l[1].charAt(0) - 'a';
-	    		float pv = Float.valueOf(l[2]);
+	    		float prob = Float.valueOf(l[2]);
 	    		
-	    		if (pv > 0.1)
+	    		if (prob < 0.9)
 	    		{
 	    			register = -1;
 	    		}
 	    		
-	    		residues.add( new Residue(residue, register, pv) );
+	    		BitSet possible_registers = new BitSet(7);
+	    		
+	    		for (int i = 0; i < 7; i++)
+	    			if (Float.valueOf(l[3+i]) > 0.01) possible_registers.set(i); 
+	    		
+	    		residues.add( new Residue(residue, register, prob, possible_registers) );
 	    	}
 	    }
 	    
@@ -791,7 +797,7 @@ public class Run {
 		{
 			if (residues.size() != sequence_lengths.get(name))
 			{
-				throw new Exception("Coiled-coil prediction for '"+name+"' does not match size between '"+aa_path+"' and '"+cc_path+"'!");
+				throw new Exception("Coiled-coil prediction for '"+name+"' does not match size between '"+aa_path+"' and '"+cc_path+"'! ("+residues.size()+" vs. "+sequence_lengths.get(name)+")");
 			}
 			
 			sequences.put( name, new Sequence(name, residues.toArray(new Residue[0])) );

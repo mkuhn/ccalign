@@ -21,6 +21,7 @@ package ccaligner;
 import ccaligner.matrix.Matrix;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.logging.Logger;
 
 import org.biojavax.bio.seq.RichSequence;
@@ -168,20 +169,22 @@ public class SmithWatermanGotoh {
 			float h = Float.NEGATIVE_INFINITY; // score if yi aligns to a gap after xi
 			float vDiagonal = v[0];
 			
-			Residue residue1 = seq1[i-1];
+			final Residue residue1 = seq1[i-1];
 
 			final int r1 = residue1.register;
 			final char s1 = residue1.aa;
-			final float p1 = residue1.cc_pvalue;
+			final float p1 = residue1.cc_prob;
+			final BitSet possible1 = residue1.possible_registers;
 			
 			for (int j = 1, l = k + 1; j < n; j++, l++) {
 
-				Residue residue2 = seq2[j-1];
+				final Residue residue2 = seq2[j-1];
 
 				final int r2 = residue2.register;
 				final char s2 = residue2.aa;
-				final float p2 = residue2.cc_pvalue;
-
+				final float p2 = residue2.cc_prob;
+				final BitSet possible2 = residue2.possible_registers;
+				
 				float similarityScore;
 				
 				if (coil_scores != null)
@@ -189,16 +192,15 @@ public class SmithWatermanGotoh {
 					// at least one of the sequences is in a coil
 					if (r1 >= 0 || r2 >= 0)
 					{
-						// use coiled-coil matrix based on: (a) lower p-value, or, if equal probability, higher register
-						similarityScore = coil_scores[ (p1 < p2 || (p1 == p2 && r1 > r2)) ? r1 : r2  ][s1][s2]; 
+						// use coiled-coil matrix based on: (a) higher probability, or, (b) if equal probability, higher register
+						similarityScore = coil_scores[ (p1 > p2 || (p1 == p2 && r1 > r2)) ? r1 : r2  ][s1][s2]; 
 						
-						// at least one of the sequences is in a coil, and they match: both are CC, and match
-						if (r1 == r2)
+						if (possible1.intersects(possible2))
 						{
-							// same register: reward
+							// overlap in possible registers: reward
 							similarityScore += c_match;
 						} else if (r1 >= 0 && r2 >= 0) {
-							// both are coils, but in different registers: punish
+							// both are coils with high probability, but in different registers: punish
 							similarityScore -= c_mismatch;
 						}
 					}
