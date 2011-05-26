@@ -787,7 +787,7 @@ public class Run {
 	    		BitSet possible_registers = new BitSet(7);
 	    		
 	    		for (int i = 0; i < 7; i++)
-	    			if (Float.valueOf(l[3+i]) > 0.01) possible_registers.set(i); 
+	    			if (Float.valueOf(l[3+i]) > 0.0) possible_registers.set(i); 
 	    		
 	    		residues.add( new Residue(residue, register, prob, possible_registers) );
 	    	}
