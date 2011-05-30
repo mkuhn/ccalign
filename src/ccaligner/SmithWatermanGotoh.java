@@ -164,7 +164,8 @@ public class SmithWatermanGotoh {
 			final int r1 = residue1.register;
 			final char s1 = residue1.aa;
 			final BitSet possible1 = residue1.possible_registers;
-			
+			final float p1 = residue1.cc_prob;
+
 			for (int j = 1, l = k + 1; j < n; j++, l++) {
 
 				final Residue residue2 = seq2[j-1];
@@ -172,6 +173,7 @@ public class SmithWatermanGotoh {
 				final int r2 = residue2.register;
 				final char s2 = residue2.aa;
 				final BitSet possible2 = residue2.possible_registers;
+				final float p2 = residue2.cc_prob;
 				
 				float similarityScore;
 				
@@ -182,6 +184,19 @@ public class SmithWatermanGotoh {
 					{
 						// use coiled-coil matrix
 						similarityScore = cc_scores[s1][s2]; 
+						
+						final int register = (p1 > p2 || (p1 == p2 && r1 > r2)) ? r1 : r2;
+
+						switch (register) {
+							// a,d
+							case 0 :
+							case 3 : similarityScore *= 0.4530 / 0.6979; break;
+							// e,g
+							case 4 :
+							case 6 : similarityScore *= 0.3246 / 0.6979; break;
+							// b,c,f
+							default : similarityScore *= 0.2833 / 0.6979; break;
+						}
 						
 						if (possible1.intersects(possible2))
 						{

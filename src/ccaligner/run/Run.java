@@ -544,12 +544,12 @@ public class Run {
             			AlignmentResult result = task.run();
             	        if (result.getBitscore() >= bitscore_cutoff || result.getMessage() != null) System.out.println(result.toString());
     	    	        
-    					cc_matrix = getMatrix("", name1, name2, matrices, blosum);
-    					no_matrix = getMatrix("", name1, name2, matrices, blosum);
-    					
-            			task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, print_alignment);
-            			result = task.run();
-            	        if (result.getBitscore() >= bitscore_cutoff || result.getMessage() != null) System.out.println(result.toString());
+//    					cc_matrix = getMatrix("", name1, name2, matrices, blosum);
+//    				 	no_matrix = getMatrix("", name1, name2, matrices, blosum);
+//    					
+//            			task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, print_alignment);
+//            			result = task.run();
+//            	        if (result.getBitscore() >= bitscore_cutoff || result.getMessage() != null) System.out.println(result.toString());
 
             	        //last_notification = printProgress(total_todo, total_done, last_notification, start);
                 	}
