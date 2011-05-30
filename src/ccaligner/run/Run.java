@@ -153,6 +153,22 @@ public class Run {
 	private static final Logger logger = Logger.getLogger(Run.class.getName());
 	private static final Options options = new Options();
 
+	/**
+	 * Options
+	 */
+	private static float paramGapOpen = 10.0f;
+	private static float paramGapExt = 1.0f;
+	private static float paramCoilMatch = 0.15f;
+	private static float paramCoilMismatch = paramCoilMatch;
+	private static boolean coiled_coil_sw = false;
+	private static boolean zero_matrix = false;
+	private static boolean blosum_matrix = false;
+	private static boolean exact_matrix = true;
+	private static boolean round_matrix = false;
+	private static int adjusted_matrix = 0;
+	private static boolean print_alignment = false;
+	private static float bitscore_cutoff = 0;
+	
 	private static Options getOptions()
 	{
 		// general options
@@ -203,13 +219,15 @@ public class Run {
 	
 	private static Matrix getMatrix(String prefix, String name1, String name2, Map<String, Matrix> matrices, Matrix blosum)
 	{
-		if (prefix != "") prefix = prefix + "-";
-		Matrix matrix = matrices.get(prefix+name1+"-"+prefix+name2);
-		if (matrix != null) return matrix; 
-
-		matrix = matrices.get(name1+"-"+name2); 
-		if (matrix != null) return matrix; 
-
+		if (!blosum_matrix)
+		{
+			if (prefix != "") prefix = prefix + "-";
+			Matrix matrix = matrices.get(prefix+name1+"-"+prefix+name2);
+			if (matrix != null) return matrix; 
+	
+			matrix = matrices.get(name1+"-"+name2); 
+			if (matrix != null) return matrix; 
+		}
 		return blosum;
 	}
 
@@ -246,27 +264,22 @@ public class Run {
 
         	boolean symm = cmd.hasOption("s");
         	
-        	float paramGapOpen = 10.0f;
         	if (cmd.hasOption("PO")) paramGapOpen = Float.valueOf(cmd.getOptionValue("PO")).floatValue();
 
-        	float paramGapExt = 1.0f;
         	if (cmd.hasOption("PE")) paramGapExt = Float.valueOf(cmd.getOptionValue("PE")).floatValue();
 
-        	float paramCoilMatch = 0.15f;
         	if (cmd.hasOption("PC")) paramCoilMatch = Float.valueOf(cmd.getOptionValue("PC")).floatValue();
 
-        	float paramCoilMismatch = paramCoilMatch;
         	if (cmd.hasOption("PX")) paramCoilMismatch = Float.valueOf(cmd.getOptionValue("PX")).floatValue();
 
-        	boolean coiled_coil_sw = !cmd.hasOption("P");
-        	boolean zero_matrix = cmd.hasOption("N");
-        	boolean blosum_matrix = cmd.hasOption("B");
-        	boolean exact_matrix = !cmd.hasOption("LR");
-        	boolean round_matrix = cmd.hasOption("R");
-        	int adjusted_matrix = 0;
-        	boolean print_alignment = cmd.hasOption("a");
+        	coiled_coil_sw = !cmd.hasOption("P");
+        	zero_matrix = cmd.hasOption("N");
+        	blosum_matrix = cmd.hasOption("B");
+        	exact_matrix = !cmd.hasOption("LR");
+        	round_matrix = cmd.hasOption("R");
+        	print_alignment = cmd.hasOption("a");
         	
-        	float bitscore_cutoff = Float.valueOf(cmd.getOptionValue("b", "10"));
+        	bitscore_cutoff = Float.valueOf(cmd.getOptionValue("b", "10"));
         	
         	if (cmd.hasOption("A")) adjusted_matrix = 1;
         	
@@ -537,21 +550,11 @@ public class Run {
     					Matrix mx_matrix = getMatrix("", name1, name2, matrices, blosum);
     					Matrix no_matrix = getMatrix("no", name1, name2, matrices, blosum);
 
-//    					System.err.print(cc_matrix.toString());
-//    					System.err.print(mx_matrix.toString());
-
             			DoRun task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, print_alignment);
             			AlignmentResult result = task.run();
             	        if (result.getBitscore() >= bitscore_cutoff || result.getMessage() != null) System.out.println(result.toString());
-    	    	        
-//    					cc_matrix = getMatrix("", name1, name2, matrices, blosum);
-//    				 	no_matrix = getMatrix("", name1, name2, matrices, blosum);
-//    					
-//            			task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, print_alignment);
-//            			result = task.run();
-//            	        if (result.getBitscore() >= bitscore_cutoff || result.getMessage() != null) System.out.println(result.toString());
 
-            	        //last_notification = printProgress(total_todo, total_done, last_notification, start);
+            	        last_notification = printProgress(total_todo, total_done, last_notification, start);
                 	}
             	}    			
     		}
