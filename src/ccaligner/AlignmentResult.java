@@ -102,7 +102,7 @@ public class AlignmentResult implements Comparable<AlignmentResult> {
 	
 	public boolean isRecomputed()
 	{
-		return !method.contentEquals("SW");
+		return method.contentEquals("CC");
 	}
 	
 	public void setMethod(String m)

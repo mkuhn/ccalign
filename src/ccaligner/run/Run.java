@@ -31,7 +31,6 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -51,6 +50,7 @@ import ccaligner.Alignment;
 import ccaligner.AlignmentResult;
 import ccaligner.Residue;
 import ccaligner.ResultList;
+import ccaligner.ResultListIterator;
 import ccaligner.Sequence;
 import ccaligner.SmithWatermanGotoh;
 import ccaligner.formats.Pair;
@@ -135,6 +135,8 @@ public class Run {
 	private static final BigInteger big0 = BigInteger.valueOf(0);
 	private static final BigInteger big1 = BigInteger.valueOf(1);
 	
+	private static final DecimalFormat f1 = new DecimalFormat("0.00");
+
 	/**
 	 * 
 	 */
@@ -149,6 +151,8 @@ public class Run {
 
 	private static final String SAMPLE_MATRICES_AB = "hsa_cel_matrix.tsv";
 
+	private static Matrix blosum;
+	
 	/**
 	 * Logger
 	 */
@@ -162,9 +166,9 @@ public class Run {
 	private static float paramGapExt = 1.0f;
 	private static float paramCoilMatch = 0.15f;
 	private static float paramCoilMismatch = paramCoilMatch;
-	private static boolean coiled_coil_sw = false;
+	private static boolean cc_comp_adj = true;
 	private static boolean blosum_matrix = false;
-	private static int adjusted_matrix = 0;
+	private static int adjusted_matrix = 1;
 	private static boolean print_alignment = false;
 	private static float bitscore_cutoff = 0;
 	
@@ -181,10 +185,10 @@ public class Run {
 		options.addOption("rx", false, "print warning for missing sequences (if not set: abort with error)(");
 		
 		// debugging / negative control options
-		options.addOption("D", false, "run debugging examples");
 		options.addOption("A", true, "use adjusted matrix at coiled-coil positions: 0 - no adjustment, 1 - group registers (ad, bcf, eg), 2 - individual registers");
 		options.addOption("B", false, "use BLOSUM62 matrix at coiled-coil positions");
-		options.addOption("P", false, "plain Smith-Waterman: do not use coiled-coil correction");
+		options.addOption("C", true, "split protein into cc/non-cc regions for compositional matrix adjustment");
+		options.addOption("D", false, "run debugging examples");
 		
 		// db options
 		options.addOption("p1", true, "protein sequences 1");
@@ -217,14 +221,22 @@ public class Run {
 	{
 		if (!blosum_matrix)
 		{
-			if (prefix != "") prefix = prefix + "-";
-			Matrix matrix = matrices.get(prefix+name1+"-"+prefix+name2);
-			if (matrix != null) return matrix; 
+			if (cc_comp_adj)
+			{
+				if (prefix != "") prefix = prefix + "-";
+				Matrix matrix = matrices.get(prefix+name1+"-"+prefix+name2);
+				if (matrix != null) return matrix;
+			}
 	
-			matrix = matrices.get(name1+"-"+name2); 
+			Matrix matrix = matrices.get(name1+"-"+name2); 
 			if (matrix != null) return matrix; 
 		}
 		return blosum;
+	}
+
+	private static Matrix getMatrix(String prefix, String name1, String name2, ResultList rl, Matrix blosum)
+	{
+		return rl.getMatrix(prefix, name1, name2, blosum, blosum_matrix, cc_comp_adj);
 	}
 
 	/**
@@ -235,7 +247,6 @@ public class Run {
         try {
         	logger.getParent().setLevel(Level.WARNING);
 //        	logger.getParent().setLevel(Level.INFO);
-			DecimalFormat f1 = new DecimalFormat("0.00");
 
         	CommandLineParser parser = new GnuParser();
         	CommandLine cmd = parser.parse( getOptions(), args);
@@ -268,7 +279,7 @@ public class Run {
 
         	if (cmd.hasOption("PX")) paramCoilMismatch = Float.valueOf(cmd.getOptionValue("PX")).floatValue();
 
-        	coiled_coil_sw = !cmd.hasOption("P");
+        	cc_comp_adj = Integer.valueOf(cmd.getOptionValue("C")) != 0;
         	blosum_matrix = cmd.hasOption("B");
         	print_alignment = cmd.hasOption("a");
         	
@@ -284,8 +295,7 @@ public class Run {
         		// parse individual options
         		for (String token: cmd.getOptionValue("F").split("_"))
         		{
-        			if (token.equals("ccalign")) { coiled_coil_sw = true; }
-        			else if (token.equals("swalign")) { coiled_coil_sw = false; }
+        			if (token.equals("nosplit")) { cc_comp_adj = false; }
         			else if (token.equals("blosum")) { blosum_matrix = true; }
         			else if (token.equals("adjusted")) { adjusted_matrix = 1; }
         			else if (token.equals("adjusted2")) { adjusted_matrix = 2; }
@@ -306,14 +316,19 @@ public class Run {
         	
         	System.out.println("# coiled-coil match reward: " + paramCoilMatch);
         	System.out.println("# coiled-coil mismatch penalty: " + paramCoilMismatch);
-        	if (!coiled_coil_sw) { System.out.println("# plain Smith-Waterman search"); }
-        	if (blosum_matrix) { System.out.println("# using BLOSUM matrix"); }
+        	if (blosum_matrix) 
+        	{ 
+        		System.out.println("# using BLOSUM matrix"); 
+        	}
+        	else
+        	{
+        		if (cc_comp_adj) { System.out.println("# using compositional matrix adjustment for CC/non-CC parts"); }
+        		else { System.out.println("# using compositional matrix adjustment for whole protein"); }
+        	}
         	if (adjusted_matrix > 0) { System.out.println("# using adjusted BLOSUM matrix"); }
         	System.out.println("# bitscore cutoff: " + f1.format(bitscore_cutoff));
         	
-        	String blosum_fn = "BLOSUM62";
-        	
-        	Matrix blosum = MatrixLoader.load(blosum_fn);
+        	blosum = MatrixLoader.load("BLOSUM62");
         	
     		Map<String,Matrix> matrices = new HashMap<String,Matrix>();
     		
@@ -383,125 +398,54 @@ public class Run {
 
             	boolean skip_missing = cmd.hasOption("rx");
             	
-            	Map<String,ResultList> results1;
-            	Map<String,ResultList> results2; 
-            	
-            	if (recompute_pass == 0)
-            	{
-            		// keep matrix in memory
-            		results1 = new HashMap<String,ResultList>(seqs1.size());
-            		results2 = new HashMap<String,ResultList>(seqs2.size());
-            	}
-            	else
-            	{
-            		// don't keep matrix in memory, still need this for temporary storage
-            		results1 = new HashMap<String,ResultList>();
-            		results2 = new HashMap<String,ResultList>();
-            	}
-            	
         		long start = System.currentTimeMillis();
         		long last_notification = start - 9000; // print first notification after 1 second 
 
             	BigInteger total_todo = BigInteger.valueOf(seqs1.size());
             	
             	if (recompute_pass == 2) total_todo = BigInteger.valueOf(seqs2.size());
-            	
+
+            	ResultListIterator rli = new ResultListIterator(br, bitscore_cutoff, recompute_pass);
             	BigInteger total_done = big0;
-        		ResultList rl = null;
-        		
-        		String last_name = "";
-        		
-        		boolean eof = false;
-        		
-            	while (!eof)
+            	
+            	while (rli.hasNext())
             	{
-            		String line = br.readLine();
-            		String name = "";
-            		AlignmentResult ar = null;
+            		ResultList rl = rli.next();
             		
-            		if (line == null)
-            		{
-            			eof = true;
-            		}
+            		if (recompute_pass == -1)
+        			{
+            			for (AlignmentResult ar : rl)
+            			{
+	        				// only re-compute missing lines
+	        				if (ar.getMessage() == null)
+	        				{
+	        					System.out.println(ar.toString());
+	        				}
+	        				else
+	        				{
+	        					String name1 = ar.getName1();
+	        					String name2 = ar.getName2();
+
+	        					Matrix cc_matrix = getMatrix("cc", name1, name2, rl, blosum);
+	        					Matrix mx_matrix = getMatrix("", name1, name2, rl, blosum);
+	        					Matrix no_matrix = getMatrix("no", name1, name2, rl, blosum);
+	
+	                			DoRun task = new DoRun(seqs1.get(ar.getName1()), seqs2.get(ar.getName2()), paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, adjusted_matrix, print_alignment);
+	                			AlignmentResult result = task.run();
+	                	        if (result.getBitscore() >= bitscore_cutoff) System.out.println(result.toString());
+	        				}
+            			}
+        			}
             		else
             		{
-                		// recompute_pass -1: just echo and recompute lines with errors
-                		if (line.startsWith("#")) 
-                		{
-                			if (recompute_pass == -1) System.out.println(line); 
-                			continue;
-                		}
-            			
-                		ar = new AlignmentResult(line);
-                		
-                		if (ar.getBitscore() < bitscore_cutoff) continue;
-
-                		// for recompute_pass 1 or 2, recompute for first or second column 
-                		name = (recompute_pass < 2) ? ar.getName1() :  ar.getName2();
-                		
-                		if (recompute_pass == -1)
-            			{
-            				// only re-compute missing lines
-            				if (ar.getMessage() == null)
-            				{
-            					System.out.println(line);
-            				}
-            				else
-            				{
-            					// FIXME: Read matrices
-            					Matrix cc_matrix = new Matrix();
-            					Matrix mx_matrix = new Matrix();
-            					Matrix no_matrix = new Matrix();
-
-                    			DoRun task = new DoRun(seqs1.get(ar.getName1()), seqs2.get(ar.getName2()), paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, adjusted_matrix, print_alignment);
-                    			AlignmentResult result = task.run();
-                    	        if (result.getBitscore() >= bitscore_cutoff) System.out.println(result.toString());
-            				}
-            			}
-            			else if (recompute_pass == 0)
-            			{
-            				// re-compute everything at once
-                    		rl = results1.get(name);
-
-    	            		if (rl == null)
-    	            		{
-    	               			rl = new ResultList();
-    	               			results1.put(name, rl);
-    	            			total_done = total_done.add(big1);
-    	            		}
-
-    	            		rl.add(ar);
-            			}
+        				recompute(rl, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, skip_missing);
+            			total_done = total_done.add(big1);
             		}
 
-        			if (recompute_pass > 0)
-        			{
-        				if (!name.contentEquals(last_name))
-        				{
-        					if (rl != null)
-        					{
-	        					results1.put("", rl);
-	            				recompute(results1, null, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, 0, skip_missing);
-	            				results1.clear();
-		            			total_done = total_done.add(big1);
-        					}
-                			rl = new ResultList();
-                			last_name = name;
-        				}
-
-        				if (ar != null) rl.add(ar);
-        			}
-        			
             		last_notification = printProgress(total_todo, total_done, last_notification, start);
             	}
             	
-    			if (recompute_pass == 0)
-    			{
-    				System.err.println("starting first pass through alignments, no output expected yet");
-    				recompute(results1, results2, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, sum1, skip_missing);
-    				System.err.println("starting second pass through alignments, printing alignments");
-    				recompute(results2, null, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, sum2, skip_missing);
-    			}
+            	if (rli.lastException() != null) throw rli.lastException();
     		}
     		else
     		{
@@ -586,104 +530,71 @@ public class Run {
 		return last_notification;
 	}
 	
-	private static void recompute(Map<String,ResultList> results1, Map<String,ResultList> results2, int recompute_pass, float bitscore_cutoff, int to_check, Map<String,Sequence> seqs1, Map<String,Sequence> seqs2, 
+	private static void recompute(ResultList rl, int recompute_pass, float bitscore_cutoff, int to_check, Map<String,Sequence> seqs1, Map<String,Sequence> seqs2, 
 			float paramGapOpen, float paramGapExt, float paramCoilMatch, float paramCoilMismatch, Map<String,Matrix> matrices,
-			int total_sequence_length, boolean skip_missing) throws Exception
+			boolean skip_missing) throws Exception
 	{
-		BigInteger total_done = BigInteger.valueOf(0);
-		long start = 0, last_notification = 0; 
-
-		if (total_sequence_length > 0)
-		{
-			start = System.currentTimeMillis();
-			last_notification = start - 9000; // print first notification after 1 second
-		}
-
-		BigInteger total_todo = BigInteger.valueOf(total_sequence_length); 
+		Collection<AlignmentResult> to_recompute;
 		
-		/*FIXME: Read Matrices from input */
-		
-		for (Entry<String, ResultList> entry : results1.entrySet())
+		while (!(to_recompute = rl.removeFromTop(to_check)).isEmpty())
 		{
-			ResultList rl = entry.getValue();
-			String entry_name = entry.getKey();
-			
-			Collection<AlignmentResult> to_recompute;
-			
-			while (!(to_recompute = rl.removeFromTop(to_check)).isEmpty())
+			for (AlignmentResult ar : to_recompute)
 			{
-				for (AlignmentResult ar : to_recompute)
+				Sequence seq1 = seqs1.get(ar.getName1());
+				if (seq1 == null)
 				{
-					Sequence seq1 = seqs1.get(ar.getName1());
-					if (seq1 == null)
+					if (skip_missing)
 					{
-						if (skip_missing)
-						{
-							logger.warning("Missing sequence from seq1: " + ar.getName1());
-							continue;
-						}
-						else
-						{
-							throw new Exception("Cannot find sequence in seqs1: " + ar.getName1());
-						}
+						logger.warning("Missing sequence from seq1: " + ar.getName1());
+						continue;
 					}
-					Sequence seq2 = seqs2.get(ar.getName2());
-					if (seq2 == null)
+					else
 					{
-						if (skip_missing)
-						{
-							logger.warning("Missing sequence from seq2: " + ar.getName2());
-							continue;
-						}
-						else
-						{
-							throw new Exception("Cannot find sequence in seqs2: " + ar.getName2());
-						}
-					}
-
-					// if the scores of the input are the same for non-CC proteins, can skip re-computing them
-//					if (seq1.min_pvalue > 0.1 & seq2.min_pvalue > 0.1)
-//					{
-//						ar.setMethod("SW-no-cc");
-//						rl.add(ar);
-//					}
-//					else
-					{
-//	        			DoRun task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, 
-//								paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, false);
-//	        			
-//	        			ar = task.run();
-//	        			if (ar.getBitscore() >= bitscore_cutoff) rl.add(ar);
+						throw new Exception("Cannot find sequence in seqs1: " + ar.getName1());
 					}
 				}
-			}
-			
-			for (AlignmentResult ar : rl)
-			{
-				if (results2 != null)
+				Sequence seq2 = seqs2.get(ar.getName2());
+				if (seq2 == null)
 				{
-	        		String name = ar.getName2();
-	        		ResultList rl2 = results2.get(name);
-	        		if (rl2 == null)
-	        		{
-	        			rl2 = new ResultList();
-	        			results2.put(name, rl2);
-	        		}
-	        		rl2.add(ar);
+					if (skip_missing)
+					{
+						logger.warning("Missing sequence from seq2: " + ar.getName2());
+						continue;
+					}
+					else
+					{
+						throw new Exception("Cannot find sequence in seqs2: " + ar.getName2());
+					}
+				}
+
+				// if the scores of the input are the same for non-CC proteins, can skip re-computing them
+				if (seq1.max_prob < 0.9 & seq2.max_prob < 0.9)
+				{
+					ar.setMethod("SW-no-cc");
+					rl.add(ar);
 				}
 				else
 				{
-					System.out.println(ar.toString());
+					String name1 = ar.getName1();
+					String name2 = ar.getName2();
+					Matrix cc_matrix = getMatrix("cc", name1, name2, rl, blosum);
+					Matrix mx_matrix = getMatrix("", name1, name2, rl, blosum);
+					Matrix no_matrix = getMatrix("no", name1, name2, rl, blosum);
+
+					logger.info("Using CC Matrix: " + cc_matrix.getId());
+					
+        			DoRun task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, 
+							paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, adjusted_matrix, false);
+        			
+        			ar = task.run();
+        			if (ar.getBitscore() >= bitscore_cutoff) rl.add(ar);
 				}
 			}
+		}
 			
-			rl.clear();
-			
-			if (total_sequence_length > 0)
-			{
-				total_done = total_done.add(BigInteger.valueOf( (results2 == null ? seqs2 : seqs1).get(entry_name).residues.length ));
-		        last_notification = printProgress(total_todo, total_done, last_notification, start);
-			}
+		for (AlignmentResult ar : rl)
+		{
+			System.out.println(ar.toString());
 		}
 	}
 	

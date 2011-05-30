@@ -87,7 +87,7 @@ public class MatrixLoader {
 		matrix_coords = new ArrayList<MatrixCoord>(tokenizer.countTokens());
 
 		String s = tokenizer.nextToken();
-		assert(s == "# query");
+		assert(s == "# query" || s == "## query" );
 		s = tokenizer.nextToken();
 		assert(s == "subject");
 		s = tokenizer.nextToken();
@@ -110,6 +110,8 @@ public class MatrixLoader {
 		
 		StringTokenizer tokenizer = new StringTokenizer ( line.trim(), "\t");
 
+		if (tokenizer.countTokens() < matrix_coords.size()) return null;
+		
 		String query = tokenizer.nextToken();
 		String subject = tokenizer.nextToken();
 		Float scaling_factor = Float.valueOf(tokenizer.nextToken());
