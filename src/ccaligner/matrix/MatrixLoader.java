@@ -21,6 +21,7 @@ package ccaligner.matrix;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.JarURLConnection;
@@ -29,6 +30,9 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -42,6 +46,7 @@ import ccaligner.util.Commons;
  * Scoring matrices loader from a jar file or a file system.
  * 
  * @author Ahmed Moustafa (ahmed@users.sf.net)
+ * @author mkuhn
  */
 
 public class MatrixLoader {
@@ -66,6 +71,133 @@ public class MatrixLoader {
 	 */
 	private static final Logger logger = Logger.getLogger(MatrixLoader.class.getName());
 
+	/**
+	 * List of matrix coords, to be read from header. Used to parse matrix definitions
+	 */
+	private final Collection<MatrixCoord> matrix_coords;
+	
+	/**
+	 * Constructor, extract format of matrix string from header
+	 * @param header
+	 */
+	public MatrixLoader(String header) {
+
+		StringTokenizer tokenizer = new StringTokenizer ( header.trim(), "\t");
+		
+		matrix_coords = new ArrayList<MatrixCoord>(tokenizer.countTokens());
+
+		String s = tokenizer.nextToken();
+		assert(s == "# query");
+		s = tokenizer.nextToken();
+		assert(s == "subject");
+		s = tokenizer.nextToken();
+		assert(s == "scaling_factor");
+		
+		while (tokenizer.hasMoreTokens()) matrix_coords.add( new MatrixCoord(tokenizer.nextToken()) );
+		
+	}
+
+	/**
+	 * Read matrix from line, using the header definition read by the constructor
+	 * @param line
+	 * @return
+	 */
+	public Matrix loadFromLine(String line)
+	{
+		float[][] scores = new float[SIZE][SIZE];
+		
+		if (line.startsWith("#")) line = line.substring(1);
+		
+		StringTokenizer tokenizer = new StringTokenizer ( line.trim(), "\t");
+
+		String query = tokenizer.nextToken();
+		String subject = tokenizer.nextToken();
+		Float scaling_factor = Float.valueOf(tokenizer.nextToken());
+		
+		Iterator<MatrixCoord> it = matrix_coords.iterator();
+		
+		while (tokenizer.hasMoreTokens())
+		{
+			MatrixCoord mc = it.next();
+			scores[mc.getI()][mc.getJ()] = Float.valueOf(tokenizer.nextToken()) / scaling_factor;
+		}
+		
+		return new Matrix(query, subject, scores);
+	}
+	
+	/**
+	 * Loads scoring matrices from Jar file or file system.
+	 * @param matrix to load
+	 * @return loaded matrices as map
+	 * @throws MatrixLoaderException
+	 * @see Matrix
+	 */
+	public static Map<String,Matrix> loadMatrices (String matrix) throws MatrixLoaderException {
+	    logger.info("Trying to load scoring matrices... " + matrix );
+
+		InputStream is = null;
+		
+		if (new StringTokenizer(matrix, Commons.getFileSeparator()).countTokens() == 1) {
+			// Matrix does not include the path
+			// Load the matrix from matrices.jar
+			is = MatrixLoader.class.getClassLoader().getResourceAsStream(MATRICES_HOME + matrix);
+			
+			if (is == null)
+			{
+		        String message = "Failed opening input stream! " + MATRICES_HOME + matrix;
+		        logger.log(Level.SEVERE, message);
+		        throw new MatrixLoaderException (message);
+			}
+		} else {
+			// Matrix includes the path information
+			// Load the matrix from the file system
+			try {
+			    is = new FileInputStream(matrix);
+		    } catch (Exception e) {
+		        String message = "Failed opening input stream: " + e.getMessage();
+		        logger.log(Level.SEVERE, message, e);
+		        throw new MatrixLoaderException (message);
+		    }
+		}
+
+		return loadMatrices(matrix, is);
+	}	
+	
+	/**
+	 * Loads scoring matrix from {@link InputStream}
+	 * @param nis named input stream
+	 * @return loaded matrix
+	 * @throws MatrixLoaderException
+	 * @see Matrix
+	 * @see NamedInputStream
+	 */
+	public static Map<String,Matrix> loadMatrices (String matrix, InputStream is) throws MatrixLoaderException {
+	    logger.info("Loading scoring matrices... " + matrix );
+			
+		BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+		
+		Map<String,Matrix> matrices = new HashMap<String,Matrix>();
+		
+		try {
+			String line = reader.readLine();
+
+			MatrixLoader ml = new MatrixLoader(line);
+			
+			while ((line = reader.readLine()) != null)
+			{
+				Matrix m = ml.loadFromLine(line);
+				matrices.put(m.getId(), m);
+			}
+
+		} catch (IOException e) {
+	        String message = "Failed reading from input stream: " + e.getMessage();
+	        logger.log(Level.SEVERE, message, e);
+	        throw new MatrixLoaderException (message);
+		}
+
+		return matrices;
+	}
+	
 	/**
 	 * Loads scoring matrix from Jar file or file system.
 	 * @param matrix to load

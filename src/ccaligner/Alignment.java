@@ -406,8 +406,8 @@ public class Alignment {
 		buffer.append(Commons.getLineSeparator());
 		buffer.append("Length #2: " + sequence2.length);
 		buffer.append(Commons.getLineSeparator());
-		buffer.append("Matrix: "
-				+ (matrix.getId() == null ? "" : matrix.getId()));
+//		buffer.append("Matrix: "
+//				+ (matrix.getId() == null ? "" : matrix.getId()));
 		buffer.append(Commons.getLineSeparator());
 		buffer.append("Gap open: " + open);
 		buffer.append(Commons.getLineSeparator());

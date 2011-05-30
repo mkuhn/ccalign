@@ -20,7 +20,6 @@ package ccaligner;
 
 import ccaligner.matrix.Matrix;
 
-import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.logging.Logger;
 
@@ -72,23 +71,15 @@ public class SmithWatermanGotoh {
 	 * @see RichSequence
 	 * @see Matrix
 	 */
-	public static Alignment align(Sequence seq1, Sequence seq2, ArrayList<Matrix> matrices, Matrix blosum,
+	public static Alignment align(Sequence seq1, Sequence seq2, Matrix cc_matrix, Matrix mx_matrix, Matrix no_matrix,
 			float o, float e, float c_match, float c_mismatch) {
 		logger.info("Started...");
 		long start = System.currentTimeMillis();
-		float[][] blosum_scores = blosum.getScores();
-		float[][][] coil_scores = null;
 		
-		if (matrices != null)
-		{
-			coil_scores = new float[matrices.size()][][];
-			
-			for (int i=0; i<matrices.size(); i++)
-			{
-				coil_scores[i] = matrices.get(i).getScores();
-		    }
-		}
- 
+		float[][] cc_scores = cc_matrix.getScores();
+		float[][] mx_scores = mx_matrix.getScores();
+		float[][] no_scores = no_matrix.getScores();
+
 		SmithWatermanGotoh sw = new SmithWatermanGotoh();
 
 		int m = seq1.residues.length + 1;
@@ -112,13 +103,12 @@ public class SmithWatermanGotoh {
 			}
 		}
 
-		Cell cell = sw.construct(seq1.residues, seq2.residues, blosum_scores, coil_scores, o, e, c_match, c_mismatch, pointers,
+		Cell cell = sw.construct(seq1.residues, seq2.residues, cc_scores, mx_scores, no_scores, o, e, c_match, c_mismatch, pointers,
 				sizesOfVerticalGaps, sizesOfHorizontalGaps);
-		Alignment alignment = sw.traceback(seq1.residues, seq2.residues, blosum, pointers, cell,
+		Alignment alignment = sw.traceback(seq1.residues, seq2.residues, cc_scores, mx_scores, no_scores, pointers, cell,
 				sizesOfVerticalGaps, sizesOfHorizontalGaps);
 		alignment.setName1(seq1.name);
 		alignment.setName2(seq2.name);
-		alignment.setMatrix(blosum);
 		alignment.setOpen(o);
 		alignment.setExtend(e);
 		logger.info("Finished in " + (System.currentTimeMillis() - start)
@@ -144,7 +134,7 @@ public class SmithWatermanGotoh {
 	 * 			  coil mismatch penalty
 	 * @return The cell where the traceback starts.
 	 */
-	private Cell construct(Residue[] seq1, Residue[] seq2, float[][] blosum, float[][][] coil_scores, float o,
+	private Cell construct(Residue[] seq1, Residue[] seq2, float[][] cc_scores, float[][] mx_scores, float[][] no_scores, float o,
 			float e, float c_match, float c_mismatch, byte[] pointers, short[] sizesOfVerticalGaps,
 			short[] sizesOfHorizontalGaps) 
 	{
@@ -173,7 +163,6 @@ public class SmithWatermanGotoh {
 
 			final int r1 = residue1.register;
 			final char s1 = residue1.aa;
-			final float p1 = residue1.cc_prob;
 			final BitSet possible1 = residue1.possible_registers;
 			
 			for (int j = 1, l = k + 1; j < n; j++, l++) {
@@ -182,36 +171,35 @@ public class SmithWatermanGotoh {
 
 				final int r2 = residue2.register;
 				final char s2 = residue2.aa;
-				final float p2 = residue2.cc_prob;
 				final BitSet possible2 = residue2.possible_registers;
 				
 				float similarityScore;
 				
-				if (coil_scores != null)
+				// at least one of the sequences is in a coil
+				if (r1 >= 0)
 				{
-					// at least one of the sequences is in a coil
-					if (r1 >= 0 || r2 >= 0)
+					if (r2 >= 0)
 					{
-						// use coiled-coil matrix based on: (a) higher probability, or, (b) if equal probability, higher register
-						similarityScore = coil_scores[ (p1 > p2 || (p1 == p2 && r1 > r2)) ? r1 : r2  ][s1][s2]; 
+						// use coiled-coil matrix
+						similarityScore = cc_scores[s1][s2]; 
 						
 						if (possible1.intersects(possible2))
 						{
 							// overlap in possible registers: reward
 							similarityScore += c_match;
-						} else if (r1 >= 0 && r2 >= 0) {
+						} else {
 							// both are coils with high probability, but in different registers: punish
 							similarityScore -= c_mismatch;
 						}
 					}
 					else
 					{
-						similarityScore = blosum[s1][s2];
+						similarityScore = mx_scores[s1][s2];
 					}
 				}
 				else
 				{
-					similarityScore = blosum[s1][s2];
+					similarityScore = no_scores[s1][s2];
 				}
 				
 				// Fill the matrices
@@ -290,14 +278,12 @@ public class SmithWatermanGotoh {
 	 * @see Cell
 	 * @see Alignment
 	 */
-	private Alignment traceback(Residue[] seq1, Residue[] seq2, Matrix m,
+	private Alignment traceback(Residue[] seq1, Residue[] seq2, float[][] cc_scores, float[][] mx_scores, float[][] no_scores, 
 			byte[] pointers, Cell cell, short[] sizesOfVerticalGaps,
 			short[] sizesOfHorizontalGaps) {
 		logger.info("Started...");
 		long start = System.currentTimeMillis();
 		
-		float[][] scores = m.getScores(); // scores at this point are only for stating similarity
-
 		int n = seq2.length + 1;
 
 		Alignment alignment = new Alignment();
@@ -354,15 +340,17 @@ public class SmithWatermanGotoh {
 				k -= n;
 				reversed1[len1] = c1;
 				reversed2[len2] = c2;
-				revcoils1[len1] = mapRegister(seq1[i].register);
-				revcoils2[len2] = mapRegister(seq2[j].register);
+				final int r1 = seq1[i].register;
+				final int r2 = seq2[j].register;
+				revcoils1[len1] = mapRegister(r1);
+				revcoils2[len2] = mapRegister(r2);
 				len1++;
 				len2++;
 				if (c1 == c2) {
 					reversed3[len3++] = Markups.IDENTITY;
 					identity++;
 					similarity++;
-				} else if (scores[c1][c2] > 0) {
+				} else if ( (r1>0 ? (r2>0 ? cc_scores : mx_scores) : no_scores)[c1][c2] > 0) {
 					reversed3[len3++] = Markups.SIMILARITY;
 					similarity++;
 				} else {

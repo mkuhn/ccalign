@@ -32,11 +32,23 @@ public class Matrix implements Serializable {
      */
     private static final long serialVersionUID = 3833742170619524400L;
 
+    private static final char[] aa = "ACDEFGHIKLMNPQRSTVWY".toCharArray();
+    
     /**
      * Matrix id (or name)
      */
     private String id = null;
     
+    /**
+     * Query from which matrix was generated (if applicable)
+     */
+    private String query = null;
+    
+    /**
+     * Subject from which matrix was generated (if applicable)
+     */
+    private String subject = null;
+
     /**
      * Scores
      */
@@ -53,6 +65,13 @@ public class Matrix implements Serializable {
         this.scores = scores;
     }
     
+    public Matrix(String query, String subject, float[][] scores) {
+    	this.query = query;
+    	this.subject = subject;
+        this.id = query + "-" + subject;
+        this.scores = scores;
+    }
+    
     /**
      * @return Returns the id.
      */
@@ -64,7 +83,6 @@ public class Matrix implements Serializable {
      * @return Check scores.
      */
     public boolean checkScores() {
-    	char[] aa = "ARNDCEQGHILKMFPSTWYV".toCharArray();
     	for (char c1 : aa)
     	{
     		float max = 0;
@@ -87,7 +105,18 @@ public class Matrix implements Serializable {
         return true;
     }
 
-    /**
+    
+    
+    
+    public String getQuery() {
+		return query;
+	}
+
+	public String getSubject() {
+		return subject;
+	}
+
+	/**
      * @return Returns the scores.
      */
     public float[][] getScores() {
@@ -125,5 +154,24 @@ public class Matrix implements Serializable {
      */
     public float getScore(char a, char b) {
         return this.scores[a][b];
+    }
+    
+    
+    
+    public String toString()
+    {
+    	StringBuilder sb = new StringBuilder();
+    	
+    	for (char a : aa) sb.append("\t"+a);
+    	sb.append("\n");
+    	
+    	for (char a : aa)
+    	{
+			sb.append(a);
+    		for (char b : aa) sb.append("\t"+String.format("%.1f", getScore(a,b)));
+    		sb.append("\n");
+    	}
+    	
+    	return sb.toString();
     }
 }

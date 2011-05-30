@@ -67,27 +67,28 @@ import ccaligner.util.Commons;
 
 class DoRun // implements Runnable
 {
-	private Sequence seq1;
-	private Sequence seq2;
-	private float paramGapOpen;
-	private float paramGapExt;
-	private float paramCoilMatch;
-	private float paramCoilMismatch;
-	private ArrayList<Matrix> matrices;
-	private Matrix blosum;
-	private boolean print_alignment;
+	private final Sequence seq1;
+	private final Sequence seq2;
+	private final float paramGapOpen;
+	private final float paramGapExt;
+	private final float paramCoilMatch;
+	private final float paramCoilMismatch;
+	private final Matrix cc_matrix;
+	private final Matrix mx_matrix;
+	private final Matrix no_matrix;
+	private final boolean print_alignment;
 	
 	public DoRun(Sequence seq1, Sequence seq2, float paramGapOpen,
-			float paramGapExt, float paramCoilMatch, float paramCoilMismatch, ArrayList<Matrix> matrices,
-			Matrix blosum, boolean print_alignment) {
+			float paramGapExt, float paramCoilMatch, float paramCoilMismatch, Matrix cc_matrix, Matrix mx_matrix, Matrix no_matrix, boolean print_alignment) {
 		this.seq1 = seq1;
 		this.seq2 = seq2;
 		this.paramGapOpen = paramGapOpen;
 		this.paramGapExt = paramGapExt;
 		this.paramCoilMatch = paramCoilMatch;
 		this.paramCoilMismatch = paramCoilMismatch;
-		this.matrices = matrices;
-		this.blosum = blosum;
+		this.cc_matrix = cc_matrix;
+		this.mx_matrix = mx_matrix;
+		this.no_matrix = no_matrix;
 		this.print_alignment = print_alignment;
 	}
 
@@ -97,7 +98,7 @@ class DoRun // implements Runnable
 	{
 		try
 		{
-			Alignment alignment = SmithWatermanGotoh.align(seq1, seq2, matrices, blosum, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch);
+			Alignment alignment = SmithWatermanGotoh.align(seq1, seq2, cc_matrix, mx_matrix, no_matrix, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch);
 
 			if (print_alignment)
 			{
@@ -143,7 +144,9 @@ public class Run {
 	 */
 	private static final String SAMPLE_SEQUENCE_B = "cel.faa";
 	private static final String SAMPLE_PC_B = "cel.tsv";
-	
+
+	private static final String SAMPLE_MATRICES_AB = "hsa_cel_matrix.tsv";
+
 	/**
 	 * Logger
 	 */
@@ -198,6 +201,17 @@ public class Run {
 		h.printHelp("ccaligner -p1 proteins1.fasta -c1 coil_predicton1.fasta -p2 proteins1.fasta -c2 coil_predicton1.fasta", options);
 	}
 	
+	private static Matrix getMatrix(String prefix, String name1, String name2, Map<String, Matrix> matrices, Matrix blosum)
+	{
+		if (prefix != "") prefix = prefix + "-";
+		Matrix matrix = matrices.get(prefix+name1+"-"+prefix+name2);
+		if (matrix != null) return matrix; 
+
+		matrix = matrices.get(name1+"-"+name2); 
+		if (matrix != null) return matrix; 
+
+		return blosum;
+	}
 
 	/**
 	 * 
@@ -206,6 +220,7 @@ public class Run {
 	public static void main(String[] args) {
         try {
         	logger.getParent().setLevel(Level.WARNING);
+//        	logger.getParent().setLevel(Level.INFO);
 			DecimalFormat f1 = new DecimalFormat("0.00");
 
         	CommandLineParser parser = new GnuParser();
@@ -231,43 +246,6 @@ public class Run {
 
         	boolean symm = cmd.hasOption("s");
         	
-        	if(cmd.hasOption("D"))
-        	{
-            	logger.info("Running example...");
-            	seqs1 = loadSequences(SAMPLE_SEQUENCE_A, SAMPLE_PC_A, cmd.getOptionValue("s1", ""));  
-            	seqs2 = loadSequences(SAMPLE_SEQUENCE_B, SAMPLE_PC_B, cmd.getOptionValue("s2", ""));
-        	}
-        	else
-        	{
-        		// check if all needed params are there
-        		ArrayList<String> missing = new ArrayList<String>();
-        		for (String opt : "p1 p2 c1 c2".split(" "))
-        		{
-        			if (symm && opt.endsWith("2")) continue;
-        			if (!cmd.hasOption(opt)) missing.add(opt);
-        		}
-        		
-        		if (missing.size() > 0)
-        		{
-        			String ls = "";
-        			for (String s : missing) ls += s + " ";
-        			System.err.println("Please specify the following options for files to use: " + ls);
-        			printUsage();
-        			return;
-        		}
-        		
-            	seqs1 = loadSequences(cmd.getOptionValue("p1"), cmd.getOptionValue("c1"), cmd.getOptionValue("s1", ""));
-            	
-            	if (symm)
-            	{
-            		seqs2 = seqs1;
-            	}
-            	else
-            	{
-                	seqs2 = loadSequences(cmd.getOptionValue("p2"), cmd.getOptionValue("c2"), cmd.getOptionValue("s2", ""));
-            	}
-        	} 
-        	
         	float paramGapOpen = 10.0f;
         	if (cmd.hasOption("PO")) paramGapOpen = Float.valueOf(cmd.getOptionValue("PO")).floatValue();
 
@@ -280,8 +258,6 @@ public class Run {
         	float paramCoilMismatch = paramCoilMatch;
         	if (cmd.hasOption("PX")) paramCoilMismatch = Float.valueOf(cmd.getOptionValue("PX")).floatValue();
 
-        	ArrayList<Matrix> matrices = null;
-        	
         	boolean coiled_coil_sw = !cmd.hasOption("P");
         	boolean zero_matrix = cmd.hasOption("N");
         	boolean blosum_matrix = cmd.hasOption("B");
@@ -346,56 +322,48 @@ public class Run {
         	Matrix blosum = MatrixLoader.load(blosum_fn);
         	if (exact_matrix) blosum.scaleScores(2);
     		if (round_matrix) blosum.roundScores();
-
-    		// load coiled coil matrices unless we want to use plain S-W for control purposes
-        	if (coiled_coil_sw)
+        	
+    		Map<String,Matrix> matrices = new HashMap<String,Matrix>();
+    		
+    		if(cmd.hasOption("D"))
         	{
-        		matrices = new ArrayList<Matrix>();
-        	
-	        	for (char c : "abcdefg".toCharArray())
-	        	{
-	        		Matrix matrix;
-	        		if (zero_matrix)
-	        		{
-	        			// use empty matrix
-	        			matrix = new Matrix();
-	        		}
-	        		else if (blosum_matrix || adjusted_matrix > 0)
-	        		{
-	        			// load BLOSUM matrix, optionally use exact (instead of rounded) version
-	        			matrix = MatrixLoader.load(blosum_fn);
-	        			if (adjusted_matrix > 0)
-	        			{
-	        				float blosum_score = 0.6979f;
-	        				float ad_score = (0.2466f + 0.2373f) / 2;
-	        				float eg_score = (0.1848f + 0.1891f) / 2;
-	        				float bcf_score = (0.0736f + 0.0926f + 0.0530f) / 3;
-	        				
-	        				float scale = 1.0f / ((adjusted_matrix == 1) ? ad_score : blosum_score); 
-	        				if (c == 'a' || c == 'd') scale *= ad_score; 
-	        				else if (c == 'e' || c == 'g') scale *= eg_score;
-	        				else scale *= bcf_score;
-	        				
-	        				matrix.scaleScores(scale);
-	        			}
-	                	if (exact_matrix) matrix.scaleScores(2);
-	        		} 
-	        		else if (exact_matrix)
-	        		{
-	        			matrix = MatrixLoader.load(c + "_blosum.sij");
-	        			matrix.scaleScores(2);
-	        		}
-	        		else
-	        		{
-	        			matrix = MatrixLoader.load(c + "_blosum.iij");
-	        		}
-	        		
-	        		if (round_matrix) matrix.roundScores();
-	        		
-	        		matrices.add(matrix);
-	        	}
+            	logger.info("Running example...");
+            	seqs1 = loadSequences(SAMPLE_SEQUENCE_A, SAMPLE_PC_A, cmd.getOptionValue("s1", ""));  
+            	seqs2 = loadSequences(SAMPLE_SEQUENCE_B, SAMPLE_PC_B, cmd.getOptionValue("s2", ""));
+            	
+            	matrices = MatrixLoader.loadMatrices(SAMPLE_MATRICES_AB);
+            	
         	}
-        	
+        	else
+        	{
+        		// check if all needed parameters are there
+        		ArrayList<String> missing = new ArrayList<String>();
+        		for (String opt : "p1 p2 c1 c2".split(" "))
+        		{
+        			if (symm && opt.endsWith("2")) continue;
+        			if (!cmd.hasOption(opt)) missing.add(opt);
+        		}
+        		
+        		if (missing.size() > 0)
+        		{
+        			String ls = "";
+        			for (String s : missing) ls += s + " ";
+        			System.err.println("Please specify the following options for files to use: " + ls);
+        			printUsage();
+        			return;
+        		}
+        		
+            	seqs1 = loadSequences(cmd.getOptionValue("p1"), cmd.getOptionValue("c1"), cmd.getOptionValue("s1", ""));
+            	
+            	if (symm)
+            	{
+            		seqs2 = seqs1;
+            	}
+            	else
+            	{
+                	seqs2 = loadSequences(cmd.getOptionValue("p2"), cmd.getOptionValue("c2"), cmd.getOptionValue("s2", ""));
+            	}
+        	} 
         	// set up estimates for remaining time
         	int sum1 = 0, sum2 = 0;
 
@@ -488,7 +456,12 @@ public class Run {
             				}
             				else
             				{
-                    			DoRun task = new DoRun(seqs1.get(ar.getName1()), seqs2.get(ar.getName2()), paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, print_alignment);
+            					// FIXME: Read matrices
+            					Matrix cc_matrix = new Matrix();
+            					Matrix mx_matrix = new Matrix();
+            					Matrix no_matrix = new Matrix();
+
+                    			DoRun task = new DoRun(seqs1.get(ar.getName1()), seqs2.get(ar.getName2()), paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, print_alignment);
                     			AlignmentResult result = task.run();
                     	        if (result.getBitscore() >= bitscore_cutoff) System.out.println(result.toString());
             				}
@@ -516,7 +489,7 @@ public class Run {
         					if (rl != null)
         					{
 	        					results1.put("", rl);
-	            				recompute(results1, null, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, 0, skip_missing);
+	            				recompute(results1, null, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, 0, skip_missing);
 	            				results1.clear();
 		            			total_done = total_done.add(big1);
         					}
@@ -533,13 +506,14 @@ public class Run {
     			if (recompute_pass == 0)
     			{
     				System.err.println("starting first pass through alignments, no output expected yet");
-    				recompute(results1, results2, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, sum1, skip_missing);
+    				recompute(results1, results2, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, sum1, skip_missing);
     				System.err.println("starting second pass through alignments, printing alignments");
-    				recompute(results2, null, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, sum2, skip_missing);
+    				recompute(results2, null, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, sum2, skip_missing);
     			}
     		}
     		else
     		{
+    			// Run CCAlign for all pairs of query/subject
     			BigInteger total_done = BigInteger.valueOf(0);
         		long start = System.currentTimeMillis();
         		long last_notification = start - 9000; // print first notification after 1 second 
@@ -549,18 +523,35 @@ public class Run {
             	// perform S-W alignments
             	for (Sequence seq1 : seqs1.values())
             	{
+            		final String name1 = seq1.name;
             		for (Sequence seq2 : seqs2.values())
                 	{
             			total_done = total_done.add(BigInteger.valueOf(seq1.residues.length*seq2.residues.length));
 
+                		final String name2 = seq2.name;
+
             			// in the symmetrical case, only do upper triangle
-            			if (symm && (seq1.name.compareTo(seq2.name) < 0)) continue;
-            			
-            			DoRun task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, blosum, print_alignment);
+            			if (symm && (name1.compareTo(name2) < 0)) continue;
+
+    					Matrix cc_matrix = getMatrix("cc", name1, name2, matrices, blosum);
+    					Matrix mx_matrix = getMatrix("", name1, name2, matrices, blosum);
+    					Matrix no_matrix = getMatrix("no", name1, name2, matrices, blosum);
+
+//    					System.err.print(cc_matrix.toString());
+//    					System.err.print(mx_matrix.toString());
+
+            			DoRun task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, print_alignment);
             			AlignmentResult result = task.run();
             	        if (result.getBitscore() >= bitscore_cutoff || result.getMessage() != null) System.out.println(result.toString());
     	    	        
-    	    	        last_notification = printProgress(total_todo, total_done, last_notification, start);
+    					cc_matrix = getMatrix("", name1, name2, matrices, blosum);
+    					no_matrix = getMatrix("", name1, name2, matrices, blosum);
+    					
+            			task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, print_alignment);
+            			result = task.run();
+            	        if (result.getBitscore() >= bitscore_cutoff || result.getMessage() != null) System.out.println(result.toString());
+
+            	        //last_notification = printProgress(total_todo, total_done, last_notification, start);
                 	}
             	}    			
     		}
@@ -614,8 +605,8 @@ public class Run {
 	}
 	
 	private static void recompute(Map<String,ResultList> results1, Map<String,ResultList> results2, int recompute_pass, float bitscore_cutoff, int to_check, Map<String,Sequence> seqs1, Map<String,Sequence> seqs2, 
-			float paramGapOpen, float paramGapExt, float paramCoilMatch, float paramCoilMismatch, ArrayList<Matrix> matrices,
-			Matrix blosum, int total_sequence_length, boolean skip_missing) throws Exception
+			float paramGapOpen, float paramGapExt, float paramCoilMatch, float paramCoilMismatch, Map<String,Matrix> matrices,
+			int total_sequence_length, boolean skip_missing) throws Exception
 	{
 		BigInteger total_done = BigInteger.valueOf(0);
 		long start = 0, last_notification = 0; 
@@ -627,6 +618,8 @@ public class Run {
 		}
 
 		BigInteger total_todo = BigInteger.valueOf(total_sequence_length); 
+		
+		/*FIXME: Read Matrices from input */
 		
 		for (Entry<String, ResultList> entry : results1.entrySet())
 		{
@@ -674,11 +667,11 @@ public class Run {
 //					}
 //					else
 					{
-	        			DoRun task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, 
-								paramCoilMismatch, matrices, blosum, false);
-	        			
-	        			ar = task.run();
-	        			if (ar.getBitscore() >= bitscore_cutoff) rl.add(ar);
+//	        			DoRun task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, 
+//								paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, false);
+//	        			
+//	        			ar = task.run();
+//	        			if (ar.getBitscore() >= bitscore_cutoff) rl.add(ar);
 					}
 				}
 			}
@@ -787,7 +780,7 @@ public class Run {
 	    		BitSet possible_registers = new BitSet(7);
 	    		
 	    		for (int i = 0; i < 7; i++)
-	    			if (Float.valueOf(l[3+i]) > 0.0) possible_registers.set(i); 
+	    			if (Float.valueOf(l[3+i]) > 0.01) possible_registers.set(i); 
 	    		
 	    		residues.add( new Residue(residue, register, prob, possible_registers) );
 	    	}
