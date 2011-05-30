@@ -76,10 +76,11 @@ class DoRun // implements Runnable
 	private final Matrix cc_matrix;
 	private final Matrix mx_matrix;
 	private final Matrix no_matrix;
+	private final int adjusted_matrix;
 	private final boolean print_alignment;
 	
 	public DoRun(Sequence seq1, Sequence seq2, float paramGapOpen,
-			float paramGapExt, float paramCoilMatch, float paramCoilMismatch, Matrix cc_matrix, Matrix mx_matrix, Matrix no_matrix, boolean print_alignment) {
+			float paramGapExt, float paramCoilMatch, float paramCoilMismatch, Matrix cc_matrix, Matrix mx_matrix, Matrix no_matrix, int adjusted_matrix, boolean print_alignment) {
 		this.seq1 = seq1;
 		this.seq2 = seq2;
 		this.paramGapOpen = paramGapOpen;
@@ -89,6 +90,7 @@ class DoRun // implements Runnable
 		this.cc_matrix = cc_matrix;
 		this.mx_matrix = mx_matrix;
 		this.no_matrix = no_matrix;
+		this.adjusted_matrix = adjusted_matrix;
 		this.print_alignment = print_alignment;
 	}
 
@@ -98,7 +100,7 @@ class DoRun // implements Runnable
 	{
 		try
 		{
-			Alignment alignment = SmithWatermanGotoh.align(seq1, seq2, cc_matrix, mx_matrix, no_matrix, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch);
+			Alignment alignment = SmithWatermanGotoh.align(seq1, seq2, cc_matrix, mx_matrix, no_matrix, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, adjusted_matrix);
 
 			if (print_alignment)
 			{
@@ -161,10 +163,7 @@ public class Run {
 	private static float paramCoilMatch = 0.15f;
 	private static float paramCoilMismatch = paramCoilMatch;
 	private static boolean coiled_coil_sw = false;
-	private static boolean zero_matrix = false;
 	private static boolean blosum_matrix = false;
-	private static boolean exact_matrix = true;
-	private static boolean round_matrix = false;
 	private static int adjusted_matrix = 0;
 	private static boolean print_alignment = false;
 	private static float bitscore_cutoff = 0;
@@ -183,12 +182,9 @@ public class Run {
 		
 		// debugging / negative control options
 		options.addOption("D", false, "run debugging examples");
-		options.addOption("A", false, "use adjusted BLOSUM62 matrix at coiled-coil positions");
+		options.addOption("A", true, "use adjusted matrix at coiled-coil positions: 0 - no adjustment, 1 - group registers (ad, bcf, eg), 2 - individual registers");
 		options.addOption("B", false, "use BLOSUM62 matrix at coiled-coil positions");
-		options.addOption("LR", false, "load rounded matrix");
-		options.addOption("R", false, "round matrix after scaling");
 		options.addOption("P", false, "plain Smith-Waterman: do not use coiled-coil correction");
-		options.addOption("N", false, "negative control: invert order of coiled-coil matrices");
 		
 		// db options
 		options.addOption("p1", true, "protein sequences 1");
@@ -273,10 +269,7 @@ public class Run {
         	if (cmd.hasOption("PX")) paramCoilMismatch = Float.valueOf(cmd.getOptionValue("PX")).floatValue();
 
         	coiled_coil_sw = !cmd.hasOption("P");
-        	zero_matrix = cmd.hasOption("N");
         	blosum_matrix = cmd.hasOption("B");
-        	exact_matrix = !cmd.hasOption("LR");
-        	round_matrix = cmd.hasOption("R");
         	print_alignment = cmd.hasOption("a");
         	
         	bitscore_cutoff = Float.valueOf(cmd.getOptionValue("b", "10"));
@@ -294,16 +287,8 @@ public class Run {
         			if (token.equals("ccalign")) { coiled_coil_sw = true; }
         			else if (token.equals("swalign")) { coiled_coil_sw = false; }
         			else if (token.equals("blosum")) { blosum_matrix = true; }
-        			else if (token.equals("blosumx")) { blosum_matrix = true; exact_matrix = true; }
-        			else if (token.equals("blosumxr")) { blosum_matrix = true; exact_matrix = true; round_matrix = true; }
-        			else if (token.equals("ccx")) { exact_matrix = true; }
         			else if (token.equals("adjusted")) { adjusted_matrix = 1; }
-        			else if (token.equals("adjustedx")) { adjusted_matrix = 1; exact_matrix = true; }
-        			else if (token.equals("adjustedxr")) { adjusted_matrix = 1; exact_matrix = true; round_matrix = true; }
         			else if (token.equals("adjusted2")) { adjusted_matrix = 2; }
-        			else if (token.equals("adjusted2x")) { adjusted_matrix = 2; exact_matrix = true; }
-        			else if (token.equals("adjusted2xr")) { adjusted_matrix = 2; exact_matrix = true; round_matrix = true; }
-        			else if (token.equals("zero")) { zero_matrix = true; }
         			else if (token.startsWith("pc")) { paramCoilMatch = Float.valueOf(token.substring(2)).floatValue(); match_set = true; }
         			else if (token.startsWith("px")) { paramCoilMismatch = Float.valueOf(token.substring(2)).floatValue(); mismatch_set = true;  }
         			else 
@@ -322,19 +307,13 @@ public class Run {
         	System.out.println("# coiled-coil match reward: " + paramCoilMatch);
         	System.out.println("# coiled-coil mismatch penalty: " + paramCoilMismatch);
         	if (!coiled_coil_sw) { System.out.println("# plain Smith-Waterman search"); }
-        	if (zero_matrix) { System.out.println("# using zero coiled-coil matrix"); }
         	if (blosum_matrix) { System.out.println("# using BLOSUM matrix"); }
         	if (adjusted_matrix > 0) { System.out.println("# using adjusted BLOSUM matrix"); }
-        	if (exact_matrix) { System.out.println("# loading exact (not rounded) matrix"); }
-        	if (round_matrix) { System.out.println("# rounding matrix"); }
         	System.out.println("# bitscore cutoff: " + f1.format(bitscore_cutoff));
         	
         	String blosum_fn = "BLOSUM62";
-        	if (exact_matrix) blosum_fn += "x"; 
         	
         	Matrix blosum = MatrixLoader.load(blosum_fn);
-        	if (exact_matrix) blosum.scaleScores(2);
-    		if (round_matrix) blosum.roundScores();
         	
     		Map<String,Matrix> matrices = new HashMap<String,Matrix>();
     		
@@ -474,7 +453,7 @@ public class Run {
             					Matrix mx_matrix = new Matrix();
             					Matrix no_matrix = new Matrix();
 
-                    			DoRun task = new DoRun(seqs1.get(ar.getName1()), seqs2.get(ar.getName2()), paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, print_alignment);
+                    			DoRun task = new DoRun(seqs1.get(ar.getName1()), seqs2.get(ar.getName2()), paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, adjusted_matrix, print_alignment);
                     			AlignmentResult result = task.run();
                     	        if (result.getBitscore() >= bitscore_cutoff) System.out.println(result.toString());
             				}
@@ -550,7 +529,7 @@ public class Run {
     					Matrix mx_matrix = getMatrix("", name1, name2, matrices, blosum);
     					Matrix no_matrix = getMatrix("no", name1, name2, matrices, blosum);
 
-            			DoRun task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, print_alignment);
+            			DoRun task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, adjusted_matrix, print_alignment);
             			AlignmentResult result = task.run();
             	        if (result.getBitscore() >= bitscore_cutoff || result.getMessage() != null) System.out.println(result.toString());
 
@@ -783,7 +762,7 @@ public class Run {
 	    		BitSet possible_registers = new BitSet(7);
 	    		
 	    		for (int i = 0; i < 7; i++)
-	    			if (Float.valueOf(l[3+i]) > 0.01) possible_registers.set(i); 
+	    			if (Float.valueOf(l[3+i]) >= 0.01) possible_registers.set(i); 
 	    		
 	    		residues.add( new Residue(residue, register, prob, possible_registers) );
 	    	}

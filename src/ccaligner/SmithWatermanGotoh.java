@@ -72,7 +72,7 @@ public class SmithWatermanGotoh {
 	 * @see Matrix
 	 */
 	public static Alignment align(Sequence seq1, Sequence seq2, Matrix cc_matrix, Matrix mx_matrix, Matrix no_matrix,
-			float o, float e, float c_match, float c_mismatch) {
+			float o, float e, float c_match, float c_mismatch, int adjusted_matrix) {
 		logger.info("Started...");
 		long start = System.currentTimeMillis();
 		
@@ -104,7 +104,7 @@ public class SmithWatermanGotoh {
 		}
 
 		Cell cell = sw.construct(seq1.residues, seq2.residues, cc_scores, mx_scores, no_scores, o, e, c_match, c_mismatch, pointers,
-				sizesOfVerticalGaps, sizesOfHorizontalGaps);
+				sizesOfVerticalGaps, sizesOfHorizontalGaps, adjusted_matrix);
 		Alignment alignment = sw.traceback(seq1.residues, seq2.residues, cc_scores, mx_scores, no_scores, pointers, cell,
 				sizesOfVerticalGaps, sizesOfHorizontalGaps);
 		alignment.setName1(seq1.name);
@@ -123,20 +123,22 @@ public class SmithWatermanGotoh {
 	 *            sequence #1
 	 * @param seq2
 	 *            sequence #2
-	 * @param blosum
-	 *            scoring matrix
-	 * @param coil_scores 
 	 * @param o
 	 *            open gap penalty
 	 * @param e
 	 *            extend gap penalty
+	 * @param adjusted_matrix 
+	 *			  type of matrix adjustment
+	 * @param blosum
+	 *            scoring matrix
+	 * @param coil_scores 
 	 * @param c3 
 	 * 			  coil mismatch penalty
 	 * @return The cell where the traceback starts.
 	 */
 	private Cell construct(Residue[] seq1, Residue[] seq2, float[][] cc_scores, float[][] mx_scores, float[][] no_scores, float o,
 			float e, float c_match, float c_mismatch, byte[] pointers, short[] sizesOfVerticalGaps,
-			short[] sizesOfHorizontalGaps) 
+			short[] sizesOfHorizontalGaps, int adjusted_matrix) 
 	{
 		logger.info("Started...");
 		long start = System.currentTimeMillis();
@@ -187,16 +189,32 @@ public class SmithWatermanGotoh {
 						
 						final int register = (p1 > p2 || (p1 == p2 && r1 > r2)) ? r1 : r2;
 
-						switch (register) {
-							// a,d
-							case 0 :
-							case 3 : similarityScore *= 0.4530 / 0.6979; break;
-							// e,g
-							case 4 :
-							case 6 : similarityScore *= 0.3246 / 0.6979; break;
-							// b,c,f
-							default : similarityScore *= 0.2833 / 0.6979; break;
+						if (adjusted_matrix == 1)
+						{
+							switch (register) {
+								// a,d
+								case 0 :
+								case 3 : similarityScore *= 0.4530 / 0.6979; break;
+								// e,g
+								case 4 :
+								case 6 : similarityScore *= 0.3246 / 0.6979; break;
+								// b,c,f
+								default : similarityScore *= 0.2833 / 0.6979; break;
+							}
 						}
+						else if (adjusted_matrix == 2)
+						{
+							switch (register) {
+								case 0 : similarityScore *= 0.4364 / 0.6979; break;
+								case 1 : similarityScore *= 0.2372 / 0.6979; break;
+								case 2 : similarityScore *= 0.4336 / 0.6979; break;
+								case 3 : similarityScore *= 0.4854 / 0.6979; break;
+								case 4 : similarityScore *= 0.2783 / 0.6979; break;
+								case 5 : similarityScore *= 0.2423 / 0.6979; break;
+								case 6 : similarityScore *= 0.4127 / 0.6979; break;
+							}
+						}
+						
 						
 						if (possible1.intersects(possible2))
 						{
