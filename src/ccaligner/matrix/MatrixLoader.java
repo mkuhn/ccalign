@@ -123,7 +123,7 @@ public class MatrixLoader {
 			MatrixCoord mc = it.next();
 			String t = tokenizer.nextToken();
 			Float v = (float) -32768;
-			if (t != "X") v = Float.valueOf(t) / scaling_factor;
+			if (!t.contentEquals("X")) v = Float.valueOf(t) / scaling_factor;
 			scores[mc.getI()][mc.getJ()] = v; 
 		}
 		
