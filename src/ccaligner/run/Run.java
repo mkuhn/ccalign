@@ -19,6 +19,7 @@
 package ccaligner.run;
 
 import java.io.BufferedReader;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
@@ -34,6 +35,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.zip.GZIPInputStream;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -710,6 +712,7 @@ public class Run {
 		try
 		{
 			// try to read from file system
+			if (path.endsWith(".gz")) return new InputStreamReader(new GZIPInputStream(new FileInputStream(path)));
 			return new FileReader(path);
 		} catch (FileNotFoundException e)
 		{
