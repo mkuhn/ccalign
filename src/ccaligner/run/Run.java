@@ -281,7 +281,7 @@ public class Run {
 
         	if (cmd.hasOption("PX")) paramCoilMismatch = Float.valueOf(cmd.getOptionValue("PX")).floatValue();
 
-        	cc_comp_adj = Integer.valueOf(cmd.getOptionValue("C")) != 0;
+        	if (cmd.hasOption("C")) cc_comp_adj = Integer.valueOf(cmd.getOptionValue("C")) != 0;
         	blosum_matrix = cmd.hasOption("B");
         	print_alignment = cmd.hasOption("a");
         	
