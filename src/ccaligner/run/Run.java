@@ -297,9 +297,12 @@ public class Run {
         		// parse individual options
         		for (String token: cmd.getOptionValue("F").split("_"))
         		{
-        			if (token.equals("nosplit")) { cc_comp_adj = false; }
-        			else if (token.equals("blosum")) { blosum_matrix = true; }
-        			else if (token.equals("adjusted")) { adjusted_matrix = 1; }
+        			if (token.equals("nosplit")) { cc_comp_adj = false; adjusted_matrix = 0; }
+        			else if (token.equals("blosum0")) { blosum_matrix = true; adjusted_matrix = 0; }
+        			else if (token.equals("blosum1")) { blosum_matrix = true; adjusted_matrix = 1; }
+        			else if (token.equals("blosum2")) { blosum_matrix = true; adjusted_matrix = 2; }
+        			else if (token.equals("adjusted0")) { adjusted_matrix = 0; }
+        			else if (token.equals("adjusted1")) { adjusted_matrix = 1; }
         			else if (token.equals("adjusted2")) { adjusted_matrix = 2; }
         			else if (token.startsWith("pc")) { paramCoilMatch = Float.valueOf(token.substring(2)).floatValue(); match_set = true; }
         			else if (token.startsWith("px")) { paramCoilMismatch = Float.valueOf(token.substring(2)).floatValue(); mismatch_set = true;  }
@@ -327,7 +330,7 @@ public class Run {
         		if (cc_comp_adj) { System.out.println("# using compositional matrix adjustment for CC/non-CC parts"); }
         		else { System.out.println("# using compositional matrix adjustment for whole protein"); }
         	}
-        	if (adjusted_matrix > 0) { System.out.println("# using adjusted BLOSUM matrix"); }
+        	if (adjusted_matrix > 0) { System.out.println("# using adjusted matrix, method: " + adjusted_matrix ); }
         	System.out.println("# bitscore cutoff: " + f1.format(bitscore_cutoff));
         	
         	blosum = MatrixLoader.load("BLOSUM62");
