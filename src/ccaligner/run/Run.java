@@ -164,7 +164,7 @@ public class Run {
 	/**
 	 * Options
 	 */
-	private static float paramGapOpen = 10.0f;
+	private static float paramGapOpen = 11.0f;
 	private static float paramGapExt = 1.0f;
 	private static float paramCoilMatch = 0.15f;
 	private static float paramCoilMismatch = paramCoilMatch;
@@ -287,7 +287,7 @@ public class Run {
         	
         	bitscore_cutoff = Float.valueOf(cmd.getOptionValue("b", "10"));
         	
-        	if (cmd.hasOption("A")) adjusted_matrix = 1;
+        	if (cmd.hasOption("A")) adjusted_matrix = Integer.valueOf(cmd.getOptionValue("A"));
         	
         	if (cmd.hasOption("F"))
         	{
