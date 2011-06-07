@@ -735,6 +735,9 @@ public class Run {
 	    		int register = l[1].charAt(0) - 'a';
 	    		float prob = Float.valueOf(l[2]);
 	    		
+	    		// special case for paircoil, which prints p-values
+	    		if (l.length == 3) prob = 1 - prob;
+	    		
 	    		if (prob < 0.9)
 	    		{
 	    			register = -1;
