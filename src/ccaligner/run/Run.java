@@ -31,8 +31,14 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.GZIPInputStream;
@@ -67,75 +73,156 @@ import ccaligner.util.Commons;
  * @author Ahmed Moustafa (ahmed@users.sf.net)
  */
 
-class DoRun // implements Runnable
-{
-	private final Sequence seq1;
-	private final Sequence seq2;
-	private final float paramGapOpen;
-	private final float paramGapExt;
-	private final float paramCoilMatch;
-	private final float paramCoilMismatch;
-	private final Matrix cc_matrix;
-	private final Matrix mx_matrix;
-	private final Matrix no_matrix;
-	private final int adjusted_matrix;
-	private final boolean print_alignment;
-	
-	public DoRun(Sequence seq1, Sequence seq2, float paramGapOpen,
-			float paramGapExt, float paramCoilMatch, float paramCoilMismatch, Matrix cc_matrix, Matrix mx_matrix, Matrix no_matrix, int adjusted_matrix, boolean print_alignment) {
-		this.seq1 = seq1;
-		this.seq2 = seq2;
-		this.paramGapOpen = paramGapOpen;
-		this.paramGapExt = paramGapExt;
-		this.paramCoilMatch = paramCoilMatch;
-		this.paramCoilMismatch = paramCoilMismatch;
-		this.cc_matrix = cc_matrix;
-		this.mx_matrix = mx_matrix;
-		this.no_matrix = no_matrix;
-		this.adjusted_matrix = adjusted_matrix;
-		this.print_alignment = print_alignment;
-	}
-
-
-
-	public AlignmentResult run() throws Exception
-	{
-		try
-		{
-			Alignment alignment = SmithWatermanGotoh.align(seq1, seq2, cc_matrix, mx_matrix, no_matrix, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, adjusted_matrix);
-
-			if (print_alignment)
-			{
-    	        System.out.println ( alignment.getSummary() );
-    	        System.out.println ( new Pair().format(alignment) );
-
-    	        System.out.println ( ">"+alignment.getName1() );
-    	        System.out.println ( alignment.getSequence1() );
-    	        System.out.println ( ">"+alignment.getName2() );
-    	        System.out.println ( alignment.getSequence2() );
-			}
-
-			return new AlignmentResult(alignment);
-		}
-		catch (OutOfMemoryError e)
-		{
-			// if the sequences are too big to compare with the current memory limits, take not of this 
-			// for later re-calculation
-			System.err.println("Not enough memory to align "+seq1.name+" and "+seq2.name);
-			return new AlignmentResult(seq1.name, seq2.name, "ERROR: Out of memory");
-		}
-		catch (Exception e)
-		{
-			System.err.println("Exception when aligning "+seq1.name+" and "+seq2.name);
-			throw e;
-		}
-	}
-}
-
 public class Run {
+
+	class DoRun implements Callable<AlignmentResult>
+	{
+		private final Sequence seq1;
+		private final Sequence seq2;
+		private final Matrix cc_matrix;
+		private final Matrix mx_matrix;
+		private final Matrix no_matrix;
+		
+		public DoRun(Sequence seq1, Sequence seq2, Matrix cc_matrix, Matrix mx_matrix, Matrix no_matrix) {
+			this.seq1 = seq1;
+			this.seq2 = seq2;
+			this.cc_matrix = cc_matrix;
+			this.mx_matrix = mx_matrix;
+			this.no_matrix = no_matrix;
+		}
+
+		public AlignmentResult call() throws Exception
+		{
+			try
+			{
+				Alignment alignment = SmithWatermanGotoh.align(seq1, seq2, cc_matrix, mx_matrix, no_matrix, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, adjusted_matrix);
+
+				if (print_alignment)
+				{
+	    	        System.out.println ( alignment.getSummary() );
+	    	        System.out.println ( new Pair().format(alignment) );
+
+	    	        System.out.println ( ">"+alignment.getName1() );
+	    	        System.out.println ( alignment.getSequence1() );
+	    	        System.out.println ( ">"+alignment.getName2() );
+	    	        System.out.println ( alignment.getSequence2() );
+				}
+
+				return new AlignmentResult(alignment);
+			}
+			catch (OutOfMemoryError e)
+			{
+				// if the sequences are too big to compare with the current memory limits, take not of this 
+				// for later re-calculation
+				System.err.println("Not enough memory to align "+seq1.name+" and "+seq2.name);
+				return new AlignmentResult(seq1.name, seq2.name, "ERROR: Out of memory");
+			}
+			catch (Exception e)
+			{
+				System.err.println("Exception when aligning "+seq1.name+" and "+seq2.name);
+				throw e;
+			}
+		}
+	}
+
+	private final ReentrantLock stdoutLock = new ReentrantLock();
+	
+	class DoRecompute implements Callable<Integer>
+	{
+	    private final LinkedList<ResultList> rls;
+	    private final int to_check;
+	    private final Map<String, Sequence> seqs1;
+	    private final Map<String, Sequence> seqs2;
+	    private final boolean skip_missing;
+		
+		public DoRecompute(LinkedList<ResultList> rls, int to_check, Map<String, Sequence> seqs1,
+				Map<String, Sequence> seqs2, boolean skip_missing) {
+			this.rls = rls;
+			this.to_check = to_check;
+			this.seqs1 = seqs1;
+			this.seqs2 = seqs2;
+			this.skip_missing = skip_missing;
+		}
+
+		public Integer call() throws Exception {
+			
+			for (ResultList rl : rls)
+			{
+				Collection<AlignmentResult> to_recompute;
+				
+				logger.info("Result list with size " + rl.size());
+				
+				while (!(to_recompute = rl.removeFromTop(to_check)).isEmpty())
+				{
+					for (AlignmentResult ar : to_recompute)
+					{
+						Sequence seq1 = seqs1.get(ar.getName1());
+						if (seq1 == null)
+						{
+							if (skip_missing)
+							{
+								logger.warning("Missing sequence from seq1: " + ar.getName1());
+								continue;
+							}
+							else
+							{
+								throw new Exception("Cannot find sequence in seqs1: " + ar.getName1());
+							}
+						}
+						Sequence seq2 = seqs2.get(ar.getName2());
+						if (seq2 == null)
+						{
+							if (skip_missing)
+							{
+								logger.warning("Missing sequence from seq2: " + ar.getName2());
+								continue;
+							}
+							else
+							{
+								throw new Exception("Cannot find sequence in seqs2: " + ar.getName2());
+							}
+						}
+	
+						logger.info("Recomputing: " + ar.getName1() + " vs. " + ar.getName2());
+						
+						// if the scores of the input are the same for non-CC proteins, can skip re-computing them
+						if (seq1.max_prob < 0.9 & seq2.max_prob < 0.9)
+						{
+							ar.setMethod("no-CC");
+							rl.add(ar);
+						}
+						else
+						{
+							String name1 = ar.getName1();
+							String name2 = ar.getName2();
+							Matrix cc_matrix = getMatrix("cc", name1, name2, rl, blosum);
+							Matrix mx_matrix = getMatrix("", name1, name2, rl, blosum);
+							Matrix no_matrix = getMatrix("no", name1, name2, rl, blosum);
+	
+							logger.info("Using CC Matrix: " + cc_matrix.getId());
+							
+		        			DoRun task = new DoRun(seq1, seq2, cc_matrix, mx_matrix, no_matrix);
+		        			
+		        			ar = task.call();
+		        			if (ar.getBitscore() >= bitscore_cutoff) rl.add(ar);
+						}
+					}
+				}
+	
+				try {
+					stdoutLock.lock();
+					for (AlignmentResult ar : rl) System.out.println(ar.toString());
+				}
+				finally {
+					stdoutLock.unlock();
+				}
+			}
+			
+			return rls.size();
+		}
+	}
 	
 	private static final BigInteger big0 = BigInteger.valueOf(0);
-	private static final BigInteger big1 = BigInteger.valueOf(1);
 	
 	private static final DecimalFormat f1 = new DecimalFormat("0.00");
 
@@ -173,12 +260,14 @@ public class Run {
 	private static int adjusted_matrix = 1;
 	private static boolean print_alignment = false;
 	private static float bitscore_cutoff = 0;
+	private static int n_threads = 1;
 	
 	private static Options getOptions()
 	{
 		// general options
 		options.addOption("h", false, "show this help message");
-		options.addOption("v", true, "verbosity: 0 (default): print only warnings;\n1: print info messages");
+		options.addOption("v", true, "verbosity: 0 (default): print only warnings;\n1: print info messages\n2: print diagnostic messages");
+		options.addOption("n", true, "number of threads to use. If below 1: number of cores to leave free.");
 		options.addOption("a", false, "print alignment");
 		options.addOption("b", true, "bitscore cutoff");
 		options.addOption("r", true, "read previous (Smith-Waterman) results from this file (or stdin if the parameter is '--')");
@@ -246,10 +335,12 @@ public class Run {
 	 * @param args
 	 */
 	public static void main(String[] args) {
+		Run run = new Run();
+		run.__main(args);
+	}
+	
+	private void __main(String[] args) {
         try {
-        	logger.getParent().setLevel(Level.WARNING);
-//        	logger.getParent().setLevel(Level.INFO);
-
         	CommandLineParser parser = new GnuParser();
         	CommandLine cmd = parser.parse( getOptions(), args);
         	
@@ -259,16 +350,18 @@ public class Run {
         		return;
         	}
         	
-        	if(cmd.hasOption("v"))
-        	{
-        		String v = cmd.getOptionValue("v");
-        		if (0 != v.compareTo("0"))
-        		{
-        			logger.getParent().setLevel(Level.INFO);
-				}
-        	}
-        	
-        	Map<String,Sequence> seqs1;
+    		switch (Integer.valueOf(cmd.getOptionValue("v", "0")))
+    		{
+    			case 1 : logger.getParent().setLevel(Level.INFO); break;
+    			case 2 : logger.getParent().setLevel(Level.FINE); break;
+    			default: logger.getParent().setLevel(Level.WARNING); 
+    		}
+    		
+        	n_threads = Integer.valueOf(cmd.getOptionValue("n", "1"));
+        	if (n_threads < 1) n_threads += Runtime.getRuntime().availableProcessors();
+        	if (n_threads < 1) n_threads = 1;
+
+    		Map<String,Sequence> seqs1;
         	Map<String,Sequence> seqs2;
 
         	boolean symm = cmd.hasOption("s");
@@ -389,10 +482,12 @@ public class Run {
         		sum2 += s.residues.length;
         	}
 
+        	
         	// if this option is set, an existing set of scores is re-computed to avoid running
         	// CCAlign on too many non-relevant proteins
         	if (cmd.hasOption("r"))
     		{
+        		logger.info("Re-computing scores");
             	BufferedReader br = new BufferedReader(openFile(cmd.getOptionValue("r")));
             	
             	int to_check = 10;
@@ -413,44 +508,83 @@ public class Run {
             	ResultListIterator rli = new ResultListIterator(br, bitscore_cutoff, recompute_pass);
             	BigInteger total_done = big0;
             	
-            	while (rli.hasNext())
-            	{
-            		ResultList rl = rli.next();
-            		
-            		if (recompute_pass == -1)
-        			{
-            			for (AlignmentResult ar : rl)
-            			{
-	        				// only re-compute missing lines
-	        				if (ar.getMessage() == null)
-	        				{
-	        					System.out.println(ar.toString());
-	        				}
-	        				else
-	        				{
-	        					String name1 = ar.getName1();
-	        					String name2 = ar.getName2();
-
-	        					Matrix cc_matrix = getMatrix("cc", name1, name2, rl, blosum);
-	        					Matrix mx_matrix = getMatrix("", name1, name2, rl, blosum);
-	        					Matrix no_matrix = getMatrix("no", name1, name2, rl, blosum);
-	
-	                			DoRun task = new DoRun(seqs1.get(ar.getName1()), seqs2.get(ar.getName2()), paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, adjusted_matrix, print_alignment);
-	                			AlignmentResult result = task.run();
-	                	        if (result.getBitscore() >= bitscore_cutoff) System.out.println(result.toString());
-	        				}
-            			}
-        			}
-            		else
-            		{
-        				recompute(rl, recompute_pass, bitscore_cutoff, to_check, seqs1, seqs2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, matrices, skip_missing);
-            			total_done = total_done.add(big1);
-            		}
-
-            		last_notification = printProgress(total_todo, total_done, last_notification, start);
-            	}
+            	ExecutorService pool = Executors.newCachedThreadPool();
+            	LinkedList<Future<Integer>> future_results = new LinkedList<Future<Integer>>();
+            	LinkedList<ResultList> rls = new LinkedList<ResultList>();
             	
-            	if (rli.lastException() != null) throw rli.lastException();
+            	try 
+            	{
+	            	while (rli.hasNext())
+	            	{
+	            		ResultList rl = rli.next();
+	            		
+	            		if (recompute_pass == -1)
+	        			{
+	            			for (AlignmentResult ar : rl)
+	            			{
+		        				// only re-compute missing lines
+		        				if (ar.getMessage() == null)
+		        				{
+		        					System.out.println(ar.toString());
+		        				}
+		        				else
+		        				{
+		        					String name1 = ar.getName1();
+		        					String name2 = ar.getName2();
+	
+		        					Matrix cc_matrix = getMatrix("cc", name1, name2, rl, blosum);
+		        					Matrix mx_matrix = getMatrix("", name1, name2, rl, blosum);
+		        					Matrix no_matrix = getMatrix("no", name1, name2, rl, blosum);
+		
+		                			DoRun task = new DoRun(seqs1.get(ar.getName1()), seqs2.get(ar.getName2()), cc_matrix, mx_matrix, no_matrix);
+		                			AlignmentResult result = task.call();
+		                	        if (result.getBitscore() >= bitscore_cutoff) System.out.println(result.toString());
+		        				}
+	            			}
+	        			}
+	            		else
+	            		{
+	            			// add new task to queue, collecting a number of tasks to avoid short thread invocations
+	            			rls.add(rl);
+	            			if (rls.size() > n_threads || !rli.hasNext())
+	            			{
+	            				DoRecompute recompute = new DoRecompute(rls, to_check, seqs1, seqs2, skip_missing);
+	            			    future_results.add(pool.submit(recompute));
+	            				rls = new LinkedList<ResultList>();
+	            			}
+	        			    
+	        			    // if there are more processes in the queue than available CPUs: get finished tasks from queue
+	        			    while (future_results.size() >= n_threads)
+	        			    {
+	            			    for (int i = 0; i < future_results.size(); i++)
+	            			    {
+	            			    	if (future_results.get(i).isDone())
+	            			    	{
+	            			    		Integer done = future_results.remove(i).get();
+	            			    		total_done = total_done.add(BigInteger.valueOf(done));
+	            	            		last_notification = printProgress(total_todo, total_done, last_notification, start);
+	            	            		break;
+	            			    	}
+	            			    }
+	            			    if (future_results.size() >= n_threads) Thread.sleep(100);
+	        			    }
+	            		}
+	            	}
+	            	
+	            	if (rli.lastException() != null) throw rli.lastException();
+	
+				    // wait for and get remaining tasks
+				    while (!future_results.isEmpty())
+				    {
+			    		Integer done = future_results.remove().get();
+			    		total_done = total_done.add(BigInteger.valueOf(done));
+	            		last_notification = printProgress(total_todo, total_done, last_notification, start);
+				    }
+            	}
+            	finally
+            	{
+            		pool.shutdownNow();
+            	}
     		}
     		else
     		{
@@ -478,8 +612,8 @@ public class Run {
     					Matrix mx_matrix = getMatrix("", name1, name2, matrices, blosum);
     					Matrix no_matrix = getMatrix("no", name1, name2, matrices, blosum);
 
-            			DoRun task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, adjusted_matrix, print_alignment);
-            			AlignmentResult result = task.run();
+            			DoRun task = new DoRun(seq1, seq2, cc_matrix, mx_matrix, no_matrix);
+            			AlignmentResult result = task.call();
             	        if (result.getBitscore() >= bitscore_cutoff || result.getMessage() != null) System.out.println(result.toString());
 
             	        last_notification = printProgress(total_todo, total_done, last_notification, start);
@@ -534,75 +668,6 @@ public class Run {
 		
 		return last_notification;
 	}
-	
-	private static void recompute(ResultList rl, int recompute_pass, float bitscore_cutoff, int to_check, Map<String,Sequence> seqs1, Map<String,Sequence> seqs2, 
-			float paramGapOpen, float paramGapExt, float paramCoilMatch, float paramCoilMismatch, Map<String,Matrix> matrices,
-			boolean skip_missing) throws Exception
-	{
-		Collection<AlignmentResult> to_recompute;
-		
-		while (!(to_recompute = rl.removeFromTop(to_check)).isEmpty())
-		{
-			for (AlignmentResult ar : to_recompute)
-			{
-				Sequence seq1 = seqs1.get(ar.getName1());
-				if (seq1 == null)
-				{
-					if (skip_missing)
-					{
-						logger.warning("Missing sequence from seq1: " + ar.getName1());
-						continue;
-					}
-					else
-					{
-						throw new Exception("Cannot find sequence in seqs1: " + ar.getName1());
-					}
-				}
-				Sequence seq2 = seqs2.get(ar.getName2());
-				if (seq2 == null)
-				{
-					if (skip_missing)
-					{
-						logger.warning("Missing sequence from seq2: " + ar.getName2());
-						continue;
-					}
-					else
-					{
-						throw new Exception("Cannot find sequence in seqs2: " + ar.getName2());
-					}
-				}
-
-				// if the scores of the input are the same for non-CC proteins, can skip re-computing them
-				if (seq1.max_prob < 0.9 & seq2.max_prob < 0.9)
-				{
-					ar.setMethod("SW-no-cc");
-					rl.add(ar);
-				}
-				else
-				{
-					String name1 = ar.getName1();
-					String name2 = ar.getName2();
-					Matrix cc_matrix = getMatrix("cc", name1, name2, rl, blosum);
-					Matrix mx_matrix = getMatrix("", name1, name2, rl, blosum);
-					Matrix no_matrix = getMatrix("no", name1, name2, rl, blosum);
-
-					logger.info("Using CC Matrix: " + cc_matrix.getId());
-					
-        			DoRun task = new DoRun(seq1, seq2, paramGapOpen, paramGapExt, paramCoilMatch, 
-							paramCoilMismatch, cc_matrix, mx_matrix, no_matrix, adjusted_matrix, false);
-        			
-        			ar = task.run();
-        			if (ar.getBitscore() >= bitscore_cutoff) rl.add(ar);
-				}
-			}
-		}
-			
-		for (AlignmentResult ar : rl)
-		{
-			System.out.println(ar.toString());
-		}
-	}
-	
 	
 	/**
 	 * 
