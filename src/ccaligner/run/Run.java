@@ -661,7 +661,7 @@ public class Run {
 	    	{
 	    		String[] l = line.split("\t");
 	    		
-	    		if (l.length != 10)
+	    		if (l.length != 10 && l.length != 3)
 				{
 					throw new Exception("Unrecognized format of coiled-coil prediction for '"+name+"' in '"+cc_path+"':\n"+line);
 				}
@@ -677,8 +677,15 @@ public class Run {
 	    		
 	    		BitSet possible_registers = new BitSet(7);
 	    		
-	    		for (int i = 0; i < 7; i++)
-	    			if (Float.valueOf(l[3+i]) >= 0.01) possible_registers.set(i); 
+	    		if (l.length > 3)
+	    		{
+		    		for (int i = 0; i < 7; i++)
+		    			if (Float.valueOf(l[3+i]) >= 0.01) possible_registers.set(i); 
+	    		}
+	    		else if (register >= 0)
+	    		{
+	    			possible_registers.set(register);
+	    		}
 	    		
 	    		residues.add( new Residue(residue, register, prob, possible_registers) );
 	    	}
