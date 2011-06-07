@@ -31,9 +31,9 @@ import java.text.DecimalFormat;
 
 public class Alignment {
 
-	// PE 1, PO 10
-	private float lambda = 0.2288567f;
-	private float kappa = 0.3101115f;
+	// PE 1, PO 10 -- gapped parameters from BLAST
+	private float lambda = 0.267f;
+	private float kappa = 0.0410f;
 	
 	/**
 	 * Gap character
@@ -226,8 +226,7 @@ public class Alignment {
 	 * @return Returns the bit score.
 	 */
 	public float getBitscore() {
-//		return (float) ((lambda * score - Math.log(kappa)) / Math.log(2));
-		return score;
+		return (float) ((lambda * score - Math.log(kappa)) / Math.log(2));
 	}
 	
 	/**
