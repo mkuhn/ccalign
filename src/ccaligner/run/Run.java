@@ -558,7 +558,8 @@ public class Run {
 	        			    {
 	            			    for (int i = 0; i < future_results.size(); i++)
 	            			    {
-	            			    	if (future_results.get(i).isDone())
+	            			    	// check if the next result is done. if there's only one thread, then just call "get" and block
+	            			    	if (future_results.get(i).isDone() || n_threads == 1)
 	            			    	{
 	            			    		Integer done = future_results.remove(i).get();
 	            			    		total_done = total_done.add(BigInteger.valueOf(done));
@@ -566,6 +567,7 @@ public class Run {
 	            	            		break;
 	            			    	}
 	            			    }
+	            			    // none of the threads finished: wait a bit before we ask again
 	            			    if (future_results.size() >= n_threads) Thread.sleep(100);
 	        			    }
 	            		}
