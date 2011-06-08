@@ -186,7 +186,7 @@ public class Run {
 						logger.info("Recomputing: " + ar.getName1() + " vs. " + ar.getName2());
 						
 						// if the scores of the input are the same for non-CC proteins, can skip re-computing them
-						if (seq1.max_prob < 0.9 & seq2.max_prob < 0.9)
+						if (seq1.max_prob < 0.9 & seq2.max_prob < 0.9 & !cc_comp_adj & adjusted_matrix != 0)
 						{
 							ar.setMethod("no-CC");
 							rl.add(ar);
