@@ -499,7 +499,7 @@ public class Run {
             	boolean skip_missing = cmd.hasOption("rx");
             	
         		long start = System.currentTimeMillis();
-        		long last_notification = start - 9000; // print first notification after 1 second 
+        		long next_notification = start + 10000; // print first notification after 10 seconds 
 
             	BigInteger total_todo = BigInteger.valueOf(seqs1.size());
             	
@@ -562,7 +562,7 @@ public class Run {
 	            			    	{
 	            			    		Integer done = future_results.remove(i).get();
 	            			    		total_done = total_done.add(BigInteger.valueOf(done));
-	            	            		last_notification = printProgress(total_todo, total_done, last_notification, start);
+	            	            		next_notification = printProgress(total_todo, total_done, next_notification, start);
 	            	            		break;
 	            			    	}
 	            			    }
@@ -578,7 +578,7 @@ public class Run {
 				    {
 			    		Integer done = future_results.remove().get();
 			    		total_done = total_done.add(BigInteger.valueOf(done));
-	            		last_notification = printProgress(total_todo, total_done, last_notification, start);
+	            		next_notification = printProgress(total_todo, total_done, next_notification, start);
 				    }
             	}
             	finally
@@ -591,7 +591,7 @@ public class Run {
     			// Run CCAlign for all pairs of query/subject
     			BigInteger total_done = BigInteger.valueOf(0);
         		long start = System.currentTimeMillis();
-        		long last_notification = start - 9000; // print first notification after 1 second 
+        		long next_notification = start + 10000; // print first notification after 10 seconds 
 
         		BigInteger total_todo = BigInteger.valueOf(sum1).multiply(BigInteger.valueOf(sum2)); 
 
@@ -616,7 +616,7 @@ public class Run {
             			AlignmentResult result = task.call();
             	        if (result.getBitscore() >= bitscore_cutoff || result.getMessage() != null) System.out.println(result.toString());
 
-            	        last_notification = printProgress(total_todo, total_done, last_notification, start);
+            	        next_notification = printProgress(total_todo, total_done, next_notification, start);
                 	}
             	}    			
     		}
@@ -630,12 +630,12 @@ public class Run {
         }
     }
 	
-	private static long printProgress(BigInteger total_todo, BigInteger total_done, long last_notification, long start)
+	private static long printProgress(BigInteger total_todo, BigInteger total_done, long next_notification, long start)
 	{
-		// print notification every 10 seconds on remaining time 
+		// print notification every 30 seconds on remaining time 
 		long now = System.currentTimeMillis();
 		
-		if (now - last_notification > 10000 && total_done.compareTo(big0) != 0)
+		if (now > next_notification && total_done.compareTo(big0) != 0)
 		{
 			if (total_todo.compareTo(big0) == 1)
 			{
@@ -663,10 +663,10 @@ public class Run {
 				System.err.println( "processed " + total_done.toString() + " sequences in " + left);
 			}
 			
-			last_notification = now;
+			next_notification = now + 30000;
 		}
 		
-		return last_notification;
+		return next_notification;
 	}
 	
 	/**
