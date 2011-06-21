@@ -81,6 +81,11 @@ public class ResultListIterator implements Iterator<ResultList> {
         			}
         			else
         			{
+        				if (ml == null)
+        				{
+            				logger.warning("Encountering adjusted matrix before matrix header, using standard header");
+            				ml = new MatrixLoader();
+        				}
         				Matrix m = ml.loadFromLine(line);
         				if (m != null)
         				{

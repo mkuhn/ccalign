@@ -186,7 +186,7 @@ public class Run {
 						logger.info("Recomputing: " + ar.getName1() + " vs. " + ar.getName2());
 						
 						// if the scores of the input are the same for non-CC proteins, can skip re-computing them
-						if (seq1.max_prob < 0.9 & seq2.max_prob < 0.9 & !cc_comp_adj & adjusted_matrix != 0)
+						if (seq1.max_prob < coiled_coil_prob_cutoff & seq2.max_prob < coiled_coil_prob_cutoff & !cc_comp_adj & adjusted_matrix != 0)
 						{
 							ar.setMethod("no-CC");
 							rl.add(ar);
@@ -261,6 +261,7 @@ public class Run {
 	private static boolean print_alignment = false;
 	private static float bitscore_cutoff = 0;
 	private static int n_threads = 1;
+	private static float coiled_coil_prob_cutoff = 0.8f; 
 	
 	private static Options getOptions()
 	{
@@ -270,6 +271,7 @@ public class Run {
 		options.addOption("n", true, "number of threads to use. If below 1: number of cores to leave free.");
 		options.addOption("a", false, "print alignment");
 		options.addOption("b", true, "bitscore cutoff");
+		options.addOption("c", true, "probability cutoff to treat as coiled-coil");
 		options.addOption("r", true, "read previous (Smith-Waterman) results from this file (or stdin if the parameter is '--')");
 		options.addOption("rn", true, "the number of top hits that should be recomputed (in conjunction with -r)");
 		options.addOption("rp", true, "1 or 2: recompute first or second protein row, not complete matrixl;\n-1: compute scores for missing proteins, e.g. due to out-of-memory errors");
@@ -366,6 +368,8 @@ public class Run {
 
         	boolean symm = cmd.hasOption("s");
         	
+        	if (cmd.hasOption("c")) coiled_coil_prob_cutoff = Float.valueOf(cmd.getOptionValue("c"));
+        	
         	if (cmd.hasOption("PO")) paramGapOpen = Float.valueOf(cmd.getOptionValue("PO")).floatValue();
 
         	if (cmd.hasOption("PE")) paramGapExt = Float.valueOf(cmd.getOptionValue("PE")).floatValue();
@@ -397,6 +401,7 @@ public class Run {
         			else if (token.equals("adjusted0")) { adjusted_matrix = 0; }
         			else if (token.equals("adjusted1")) { adjusted_matrix = 1; }
         			else if (token.equals("adjusted2")) { adjusted_matrix = 2; }
+        			else if (token.equals("adjusted3")) { adjusted_matrix = 3; }
         			else if (token.startsWith("pc")) { paramCoilMatch = Float.valueOf(token.substring(2)).floatValue(); match_set = true; }
         			else if (token.startsWith("px")) { paramCoilMismatch = Float.valueOf(token.substring(2)).floatValue(); mismatch_set = true;  }
         			else 
@@ -412,6 +417,7 @@ public class Run {
         		}
         	}
         	
+        	System.out.println("# probability cut-off for coiled coil: " + coiled_coil_prob_cutoff);
         	System.out.println("# coiled-coil match reward: " + paramCoilMatch);
         	System.out.println("# coiled-coil mismatch penalty: " + paramCoilMismatch);
         	if (blosum_matrix) 
@@ -740,7 +746,7 @@ public class Run {
 	    		// special case for paircoil, which prints p-values
 	    		if (l.length == 3) prob = 1 - prob;
 	    		
-	    		if (prob < 0.9)
+	    		if (prob < coiled_coil_prob_cutoff)
 	    		{
 	    			register = -1;
 	    		}

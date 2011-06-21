@@ -102,7 +102,7 @@ public class AlignmentResult implements Comparable<AlignmentResult> {
 	
 	public boolean isRecomputed()
 	{
-		return method.endsWith("CC") || method.endsWith("!") ;
+		return method.endsWith("CC") || method.endsWith("!");
 	}
 	
 	public void setMethod(String m)

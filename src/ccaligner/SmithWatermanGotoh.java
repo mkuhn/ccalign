@@ -214,6 +214,18 @@ public class SmithWatermanGotoh {
 								case 6 : similarityScore *= 0.4127 / 0.6979; break;
 							}
 						}
+						else if (adjusted_matrix == 3)
+						{
+							switch (register) {
+								case 0 : similarityScore *= 0.4364 / 0.4336; break;
+								case 1 : similarityScore *= 0.2372 / 0.4336; break;
+								case 2 : similarityScore *= 0.4336 / 0.4336; break;
+								case 3 : similarityScore *= 0.4854 / 0.4336; break;
+								case 4 : similarityScore *= 0.2783 / 0.4336; break;
+								case 5 : similarityScore *= 0.2423 / 0.4336; break;
+								case 6 : similarityScore *= 0.4127 / 0.4336; break;
+							}
+						}
 						
 						
 						if (possible1.intersects(possible2))
