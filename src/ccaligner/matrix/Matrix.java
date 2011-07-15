@@ -20,6 +20,8 @@ package ccaligner.matrix;
 
 import java.io.Serializable;
 
+import ccaligner.Residue;
+
 /**
  * Scoring matrix.
  * 
@@ -57,7 +59,7 @@ public class Matrix implements Serializable {
     
     public Matrix() {
         this.id = "zeroes";
-        this.scores = new float[127][127];
+        this.scores = new float[ Residue.residues.length ][ Residue.residues.length ];
     }
     
     public Matrix(String id, float[][] scores) {
@@ -88,7 +90,7 @@ public class Matrix implements Serializable {
     		float max = 0;
         	for (char c2 : aa)
     		{
-        		float f = this.scores[c1][c2];
+        		float f = this.scores[ Residue.aa_to_code[c1] ][ Residue.aa_to_code[c2] ];
     			if (f > max) { max = f; };
     		}
         	if (id.contentEquals("zeroes"))
@@ -126,9 +128,9 @@ public class Matrix implements Serializable {
     
     public void scaleScores(float f)
     {
-    	for (int i=0; i<127; i++)
+    	for (int i=0; i < Residue.residues.length ; i++)
     	{
-        	for (int j=0; j<127; j++)
+        	for (int j=0; j < Residue.residues.length ; j++)
         	{
         		scores[i][j] *= f;
         	}
@@ -137,9 +139,9 @@ public class Matrix implements Serializable {
 
     public void roundScores()
     {
-    	for (int i=0; i<127; i++)
+    	for (int i=0; i < Residue.residues.length ; i++)
     	{
-        	for (int j=0; j<127; j++)
+        	for (int j=0; j < Residue.residues.length ; j++)
         	{
         		scores[i][j] = Math.round(scores[i][j]);
         	}
@@ -152,10 +154,13 @@ public class Matrix implements Serializable {
      * @param b
      * @return score
      */
-    public float getScore(char a, char b) {
+    public float getScore(short a, short b) {
         return this.scores[a][b];
     }
     
+    public float getScore(char a, char b) {
+        return this.scores[ Residue.aa_to_code[a] ][ Residue.aa_to_code[b] ];
+    }
     
     
     public String toString()

@@ -171,7 +171,7 @@ public class MatrixLoader {
 	 * @see Matrix
 	 */
 	public static Map<String,Matrix> loadMatrices (String matrix) throws MatrixLoaderException {
-	    logger.info("Trying to load scoring matrices... " + matrix );
+	    logger.fine("Trying to load scoring matrices... " + matrix );
 
 		InputStream is = null;
 		
@@ -210,7 +210,7 @@ public class MatrixLoader {
 	 * @see NamedInputStream
 	 */
 	public static Map<String,Matrix> loadMatrices (String matrix, InputStream is) throws MatrixLoaderException {
-	    logger.info("Loading scoring matrices... " + matrix );
+	    logger.fine("Loading scoring matrices... " + matrix );
 			
 		BufferedReader reader = new BufferedReader(new InputStreamReader(is));
 		
@@ -274,7 +274,7 @@ public class MatrixLoader {
 	 * @see NamedInputStream
 	 */
 	public static Matrix load (String matrix, InputStream is) throws MatrixLoaderException {
-	    logger.info("Loading scoring matrix... " + matrix );
+	    logger.fine("Loading scoring matrix... " + matrix );
 	    char[] acids = new char[SIZE];
 			
 		// Initialize the acids array to null values (ascii = 0)
@@ -336,7 +336,7 @@ public class MatrixLoader {
 	        logger.log(Level.SEVERE, message, e);
 	        throw new MatrixLoaderException (message);
 	    }
-	    logger.info("Finished loading scoring matrix");
+	    logger.fine("Finished loading scoring matrix");
 		return new Matrix(matrix, scores);
 	}
 
@@ -347,7 +347,7 @@ public class MatrixLoader {
 	 * @throws MatrixLoaderException
 	 */
 	public static Collection<String> list (boolean sort ) throws MatrixLoaderException {
-		logger.info("Loading list of scoring matrices...");
+		logger.fine("Loading list of scoring matrices...");
 	    ArrayList<String> matrices = new ArrayList<String>();
 		URL url = MatrixLoader.class.getClassLoader().getResource(MATRICES_HOME);
 		if (url.getFile().toString().indexOf("!") != -1) {
@@ -391,7 +391,7 @@ public class MatrixLoader {
 		if (sort) {
 		    Collections.sort(matrices, new MatricesComparator());
 		}
-		logger.info("Finished loading list of scoring matrices");
+		logger.fine("Finished loading list of scoring matrices");
 		return matrices;
 	}
 

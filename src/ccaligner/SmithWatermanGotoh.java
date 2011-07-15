@@ -73,7 +73,7 @@ public class SmithWatermanGotoh {
 	 */
 	public static Alignment align(Sequence seq1, Sequence seq2, Matrix cc_matrix, Matrix mx_matrix, Matrix no_matrix,
 			float o, float e, float c_match, float c_mismatch, int adjusted_matrix) {
-		logger.info("Started...");
+		logger.fine("Started...");
 		long start = System.currentTimeMillis();
 		
 		float[][] cc_scores = cc_matrix.getScores();
@@ -111,7 +111,7 @@ public class SmithWatermanGotoh {
 		alignment.setName2(seq2.name);
 		alignment.setOpen(o);
 		alignment.setExtend(e);
-		logger.info("Finished in " + (System.currentTimeMillis() - start)
+		logger.fine("Finished in " + (System.currentTimeMillis() - start)
 				+ " milliseconds");
 		return alignment;
 	}
@@ -140,7 +140,7 @@ public class SmithWatermanGotoh {
 			float e, float c_match, float c_mismatch, byte[] pointers, short[] sizesOfVerticalGaps,
 			short[] sizesOfHorizontalGaps, int adjusted_matrix) 
 	{
-		logger.info("Started...");
+		logger.fine("Started...");
 		long start = System.currentTimeMillis();
 		
 		final int m = seq1.length + 1;
@@ -164,7 +164,7 @@ public class SmithWatermanGotoh {
 			final Residue residue1 = seq1[i-1];
 
 			final int r1 = residue1.register;
-			final char s1 = residue1.aa;
+			final short s1 = residue1.aa_code;
 			final BitSet possible1 = residue1.possible_registers;
 			final float p1 = residue1.cc_prob;
 
@@ -173,7 +173,7 @@ public class SmithWatermanGotoh {
 				final Residue residue2 = seq2[j-1];
 
 				final int r2 = residue2.register;
-				final char s2 = residue2.aa;
+				final short s2 = residue2.aa_code;
 				final BitSet possible2 = residue2.possible_registers;
 				final float p2 = residue2.cc_prob;
 				
@@ -217,15 +217,29 @@ public class SmithWatermanGotoh {
 						else if (adjusted_matrix == 3)
 						{
 							switch (register) {
-								case 0 : similarityScore *= 0.4364 / 0.4336; break;
-								case 1 : similarityScore *= 0.2372 / 0.4336; break;
-								case 2 : similarityScore *= 0.4336 / 0.4336; break;
-								case 3 : similarityScore *= 0.4854 / 0.4336; break;
-								case 4 : similarityScore *= 0.2783 / 0.4336; break;
-								case 5 : similarityScore *= 0.2423 / 0.4336; break;
-								case 6 : similarityScore *= 0.4127 / 0.4336; break;
+								case 0 : similarityScore *= 0.4364 / 0.4127; break;
+								case 1 : similarityScore *= 0.2372 / 0.4127; break;
+								case 2 : similarityScore *= 0.4336 / 0.4127; break;
+								case 3 : similarityScore *= 0.4854 / 0.4127; break;
+								case 4 : similarityScore *= 0.2783 / 0.4127; break;
+								case 5 : similarityScore *= 0.2423 / 0.4127; break;
+								case 6 : similarityScore *= 0.4127 / 0.4127; break;
 							}
 						}
+						else if (adjusted_matrix == 4)
+						{
+							switch (register) {
+								// a,d
+								case 0 :
+								case 3 : similarityScore *= 0.4530 / 0.4127; break;
+								// e,g
+								case 4 :
+								case 6 : similarityScore *= 0.3246 / 0.4127; break;
+								// b,c,f
+								default : similarityScore *= 0.2833 / 0.4127; break;
+							}
+						}
+
 						
 						
 						if (possible1.intersects(possible2))
@@ -244,7 +258,14 @@ public class SmithWatermanGotoh {
 				}
 				else
 				{
-					similarityScore = no_scores[s1][s2];
+					if (r2 >= 0)
+					{
+						similarityScore = mx_scores[s1][s2];
+					}
+					else
+					{
+						similarityScore = no_scores[s1][s2];
+					}
 				}
 				
 				// Fill the matrices
@@ -290,7 +311,7 @@ public class SmithWatermanGotoh {
 				}
 			}
 		}
-		logger.info("Finished in " + (System.currentTimeMillis() - start)
+		logger.fine("Finished in " + (System.currentTimeMillis() - start)
 				+ " milliseconds");
 		
 		Cell cell = new Cell();
@@ -326,7 +347,7 @@ public class SmithWatermanGotoh {
 	private Alignment traceback(Residue[] seq1, Residue[] seq2, float[][] cc_scores, float[][] mx_scores, float[][] no_scores, 
 			byte[] pointers, Cell cell, short[] sizesOfVerticalGaps,
 			short[] sizesOfHorizontalGaps) {
-		logger.info("Started...");
+		logger.fine("Started...");
 		long start = System.currentTimeMillis();
 		
 		int n = seq2.length + 1;
@@ -436,7 +457,7 @@ public class SmithWatermanGotoh {
 		alignment.setGaps(gaps);
 		alignment.setSimilarity(similarity);
 
-		logger.info("Finished in " + (System.currentTimeMillis() - start)
+		logger.fine("Finished in " + (System.currentTimeMillis() - start)
 				+ " milliseconds");
 		return alignment;
 	}

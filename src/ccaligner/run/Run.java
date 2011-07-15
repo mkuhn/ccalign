@@ -150,7 +150,7 @@ public class Run {
 			{
 				Collection<AlignmentResult> to_recompute;
 				
-				logger.info("Result list with size " + rl.size());
+				logger.fine("Result list with size " + rl.size());
 				
 				while (!(to_recompute = rl.removeFromTop(to_check)).isEmpty())
 				{
@@ -183,7 +183,7 @@ public class Run {
 							}
 						}
 	
-						logger.info("Recomputing: " + ar.getName1() + " vs. " + ar.getName2());
+						logger.fine("Recomputing: " + ar.getName1() + " vs. " + ar.getName2());
 						
 						// if the scores of the input are the same for non-CC proteins, can skip re-computing them
 						if (seq1.max_prob < coiled_coil_prob_cutoff & seq2.max_prob < coiled_coil_prob_cutoff & !cc_comp_adj & adjusted_matrix != 0)
@@ -199,7 +199,7 @@ public class Run {
 							Matrix mx_matrix = getMatrix("", name1, name2, rl, blosum);
 							Matrix no_matrix = getMatrix("no", name1, name2, rl, blosum);
 	
-							logger.info("Using CC Matrix: " + cc_matrix.getId());
+							logger.fine("Using CC Matrix: " + cc_matrix.getId());
 							
 		        			DoRun task = new DoRun(seq1, seq2, cc_matrix, mx_matrix, no_matrix);
 		        			
@@ -402,6 +402,7 @@ public class Run {
         			else if (token.equals("adjusted1")) { adjusted_matrix = 1; }
         			else if (token.equals("adjusted2")) { adjusted_matrix = 2; }
         			else if (token.equals("adjusted3")) { adjusted_matrix = 3; }
+        			else if (token.equals("adjusted4")) { adjusted_matrix = 4; }
         			else if (token.startsWith("pc")) { paramCoilMatch = Float.valueOf(token.substring(2)).floatValue(); match_set = true; }
         			else if (token.startsWith("px")) { paramCoilMismatch = Float.valueOf(token.substring(2)).floatValue(); mismatch_set = true;  }
         			else 
@@ -438,7 +439,7 @@ public class Run {
     		
     		if(cmd.hasOption("D"))
         	{
-            	logger.info("Running example...");
+            	logger.fine("Running example...");
             	seqs1 = loadSequences(SAMPLE_SEQUENCE_A, SAMPLE_PC_A, cmd.getOptionValue("s1", ""));  
             	seqs2 = loadSequences(SAMPLE_SEQUENCE_B, SAMPLE_PC_B, cmd.getOptionValue("s2", ""));
             	
@@ -488,6 +489,7 @@ public class Run {
         		sum2 += s.residues.length;
         	}
 
+    		long global_start = System.currentTimeMillis();
         	
         	// if this option is set, an existing set of scores is re-computed to avoid running
         	// CCAlign on too many non-relevant proteins
@@ -630,12 +632,15 @@ public class Run {
     		}
         	
         	System.out.println("#DONE");
-	        logger.info("Finished running ccaligner");
+	        logger.fine("Finished running ccaligner");
 	        
+			logger.info("Finished in " + (System.currentTimeMillis() - global_start)
+					+ " milliseconds");
         } catch (Exception e) {
         	logger.log(Level.SEVERE, "Failed running ccaligner: " + e.getMessage(), e);
         	System.exit(1);
         }
+        
     }
 	
 	private static long printProgress(BigInteger total_todo, BigInteger total_done, long next_notification, long start)

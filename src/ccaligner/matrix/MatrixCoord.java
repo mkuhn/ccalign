@@ -1,20 +1,22 @@
 package ccaligner.matrix;
 
+import ccaligner.Residue;
+
 public class MatrixCoord {
 
-	private final int i;
-	private final int j;
+	private final short i;
+	private final short j;
 
 	public MatrixCoord(String coord) {
-		this.i = coord.charAt(0);
-		this.j = coord.charAt(1);
+		this.i = Residue.aa_to_code[ coord.charAt(0) ];
+		this.j = Residue.aa_to_code[ coord.charAt(1) ];
 	}
 
-	public int getI() {
+	public short getI() {
 		return i;
 	}
 
-	public int getJ() {
+	public short getJ() {
 		return j;
 	}
 }

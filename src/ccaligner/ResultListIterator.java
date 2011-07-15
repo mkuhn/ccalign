@@ -70,7 +70,7 @@ public class ResultListIterator implements Iterator<ResultList> {
         			// Start of new comment section: return results so far
         			if (rl.size() > 0)
         			{
-        				logger.info("Returning new result list");
+        				logger.fine("Returning new result list");
         				line_cache = line;
         				return rl;
         			}
