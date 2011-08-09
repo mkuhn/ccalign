@@ -20,8 +20,9 @@ package ccaligner.util;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
+import org.biojavax.SimpleNamespace;
+import org.biojavax.bio.seq.io.FastaFormat;
 
 /**
  * Global constants/variables/settings
@@ -30,6 +31,10 @@ import java.util.regex.Pattern;
  */
 
 public abstract class Commons {
+	
+	private static SimpleNamespace ns = new SimpleNamespace("biojava");
+	private static FastaFormat fastaFormat = new FastaFormat();
+
 	/**
 	 * Logger
 	 */
@@ -151,32 +156,19 @@ public abstract class Commons {
 		return jnlp;
 	}
 
-	// header line
-	private static final Pattern hp = Pattern.compile("^>?\\s*(\\S+)(\\s+(.*))?");
-	// description chunk
-	private static final Pattern dp = Pattern.compile( "^(gi\\|(\\d+)\\|)?(\\w+)\\|(\\w+?)(\\.(\\d+))?\\|(\\w+)?$");
-	
-	/*
+
+	/**
 	 * Extract sequence name from FASTA header file, the same way that BioJava does when 
-	 * reading a FASTA file.   
+	 * reading a FASTA file by using BioJava's @FastaFormat.   
 	 */
 	public static String extractName(String line) throws Exception
 	{
-		Matcher m = hp.matcher(line);
-		if (!m.matches()) {
-			throw new Exception("Cannot parse FASTA header for '"+line+"'");
-		}
-	
-		String name = m.group(1);
-	
-		m = dp.matcher(name);
-		if (m.matches()) {
-			String accession = m.group(4);
-			name = m.group(7);
-			if (name==null) name=accession;
-		}
+		RichSeqIONameListener r = new RichSeqIONameListener();
 		
-		return name;
+		if (!line.startsWith(">")) line = ">" + line;
+		
+		fastaFormat.processHeader(line, r, ns);
+		return r.getName();
 	}
 
 }
