@@ -39,6 +39,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.GZIPInputStream;
@@ -358,6 +360,33 @@ public class Run {
     			case 2 : logger.getParent().setLevel(Level.FINE); break;
     			default: logger.getParent().setLevel(Level.WARNING); 
     		}
+    		
+    	    //get the top Logger:
+    	    Logger topLogger = java.util.logging.Logger.getLogger("");
+
+    	    // Handler for console (reuse it if it already exists)
+    	    Handler consoleHandler = null;
+    	    //see if there is already a console handler
+    	    for (Handler handler : topLogger.getHandlers()) {
+    	        if (handler instanceof ConsoleHandler) {
+    	            //found the console handler
+    	            consoleHandler = handler;
+    	            break;
+    	        }
+    	    }
+
+    	    if (consoleHandler == null) {
+    	        //there was no console handler found, create a new one
+    	        consoleHandler = new ConsoleHandler();
+    	        topLogger.addHandler(consoleHandler);
+    	    }
+    	    //set the console handler to fine:
+    	    consoleHandler.setLevel(java.util.logging.Level.FINEST);
+
+    	    if (logger.getParent().getLevel().intValue() < Level.WARNING.intValue())
+    	    {
+    	    	logger.log(logger.getParent().getLevel(), "Level set to: " + logger.getParent().getLevel().getName());
+    	    }
     		
         	n_threads = Integer.valueOf(cmd.getOptionValue("n", "1"));
         	if (n_threads < 1) n_threads += Runtime.getRuntime().availableProcessors();

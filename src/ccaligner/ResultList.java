@@ -6,10 +6,17 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.logging.Logger;
 
 import ccaligner.matrix.Matrix;
+import ccaligner.matrix.MatrixLoader;
 
 public class ResultList implements Iterable<AlignmentResult> {
+
+	/**
+	 * Logger
+	 */
+	private static final Logger logger = Logger.getLogger(ResultList.class.getName());
 
 	private TreeSet<AlignmentResult> results;
 	private Map<String, Matrix> matrices;
@@ -66,17 +73,27 @@ public class ResultList implements Iterable<AlignmentResult> {
 
 	public Matrix getMatrix(String prefix, String name1, String name2, Matrix blosum, boolean blosum_matrix, boolean cc_comp_adj) 
 	{
+		Matrix matrix = null;
+		
 		if (!blosum_matrix)
 		{
 			if (cc_comp_adj)
 			{
 				if (prefix != "") prefix = prefix + "-";
-				Matrix matrix = matrices.get(prefix+name1+"-"+prefix+name2);
-				if (matrix != null) return matrix;
+				matrix = matrices.get(prefix+name1+"-"+prefix+name2);
 			}
 	
-			Matrix matrix = matrices.get(name1+"-"+name2); 
-			if (matrix != null) return matrix; 
+			if (matrix == null) matrix = matrices.get(name1+"-"+name2);
+			
+			if (matrix != null)
+			{
+				logger.fine("Returning matrix with name: "+matrix.getId());
+				return matrix;
+			}
+			else
+			{
+				logger.fine("Could not find a matrix, returning BLOSUM matrix");
+			}	
 		}
 		return blosum;	
 	}
