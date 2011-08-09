@@ -97,6 +97,10 @@ public class MatrixLoader {
 		
 	}
 
+	/**
+	 * Constructor, in case there is no format line specified call the real constructor
+	 * with the default format. 
+	 */
 	public MatrixLoader() {
 		this("## query	subject	scaling_factor	" + 
 				"--	-A	-B	-C	-D	-E	-F	-G	-H	-I	-K	-L	-M	-N	-P	-Q	-R	-S	-T	-V	-W	-X	-Y	-Z	-U	-*	-O	-J	" +
