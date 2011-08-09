@@ -138,8 +138,9 @@ public class MatrixLoader {
 	 * Read matrix from line, using the header definition read by the constructor
 	 * @param line
 	 * @return
+	 * @throws Exception 
 	 */
-	public Matrix loadFromLine(String line)
+	public Matrix loadFromLine(String line) throws Exception
 	{
 		float[][] scores = new float[SIZE][SIZE];
 		
@@ -149,8 +150,8 @@ public class MatrixLoader {
 
 		if (tokenizer.countTokens() < matrix_coords.size()) return null;
 		
-		String query = tokenizer.nextToken();
-		String subject = tokenizer.nextToken();
+		String query = Commons.extractName(tokenizer.nextToken());
+		String subject = Commons.extractName(tokenizer.nextToken());
 		Float scaling_factor = Float.valueOf(tokenizer.nextToken());
 		
 		Iterator<MatrixCoord> it = matrix_coords.iterator();
@@ -171,10 +172,10 @@ public class MatrixLoader {
 	 * Loads scoring matrices from Jar file or file system.
 	 * @param matrix to load
 	 * @return loaded matrices as map
-	 * @throws MatrixLoaderException
+	 * @throws Exception 
 	 * @see Matrix
 	 */
-	public static Map<String,Matrix> loadMatrices (String matrix) throws MatrixLoaderException {
+	public static Map<String,Matrix> loadMatrices (String matrix) throws Exception {
 	    logger.fine("Trying to load scoring matrices... " + matrix );
 
 		InputStream is = null;
@@ -209,11 +210,11 @@ public class MatrixLoader {
 	 * Loads scoring matrix from {@link InputStream}
 	 * @param nis named input stream
 	 * @return loaded matrix
-	 * @throws MatrixLoaderException
+	 * @throws Exception 
 	 * @see Matrix
 	 * @see NamedInputStream
 	 */
-	public static Map<String,Matrix> loadMatrices (String matrix, InputStream is) throws MatrixLoaderException {
+	public static Map<String,Matrix> loadMatrices (String matrix, InputStream is) throws Exception {
 	    logger.fine("Loading scoring matrices... " + matrix );
 			
 		BufferedReader reader = new BufferedReader(new InputStreamReader(is));

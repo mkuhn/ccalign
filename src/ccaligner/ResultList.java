@@ -85,15 +85,9 @@ public class ResultList implements Iterable<AlignmentResult> {
 	
 			if (matrix == null) matrix = matrices.get(name1+"-"+name2);
 			
-			if (matrix != null)
-			{
-				logger.fine("Returning matrix with name: "+matrix.getId());
-				return matrix;
-			}
-			else
-			{
-				logger.fine("Could not find a matrix, returning BLOSUM matrix");
-			}	
+			if (matrix != null) return matrix;
+			
+			logger.fine("Could not find a matrix, returning BLOSUM matrix");
 		}
 		return blosum;	
 	}
