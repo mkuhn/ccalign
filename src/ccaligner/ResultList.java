@@ -9,7 +9,6 @@ import java.util.TreeSet;
 import java.util.logging.Logger;
 
 import ccaligner.matrix.Matrix;
-import ccaligner.matrix.MatrixLoader;
 
 public class ResultList implements Iterable<AlignmentResult> {
 
