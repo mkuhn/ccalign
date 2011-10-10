@@ -84,20 +84,26 @@ public class Run {
 		private final Matrix cc_matrix;
 		private final Matrix mx_matrix;
 		private final Matrix no_matrix;
-		
-		public DoRun(Sequence seq1, Sequence seq2, Matrix cc_matrix, Matrix mx_matrix, Matrix no_matrix) {
+		private final Matrix ad_matrix;
+		private final Matrix bcf_matrix;
+		private final Matrix eg_matrix;
+
+		public DoRun(Sequence seq1, Sequence seq2, Matrix cc_matrix, Matrix mx_matrix, Matrix no_matrix, Matrix ad_matrix, Matrix bcf_matrix, Matrix eg_matrix) {
 			this.seq1 = seq1;
 			this.seq2 = seq2;
 			this.cc_matrix = cc_matrix;
 			this.mx_matrix = mx_matrix;
 			this.no_matrix = no_matrix;
+			this.ad_matrix = ad_matrix;
+			this.bcf_matrix = bcf_matrix;
+			this.eg_matrix = eg_matrix;
 		}
 
 		public AlignmentResult call() throws Exception
 		{
 			try
 			{
-				Alignment alignment = SmithWatermanGotoh.align(seq1, seq2, cc_matrix, mx_matrix, no_matrix, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, adjusted_matrix);
+				Alignment alignment = SmithWatermanGotoh.align(seq1, seq2, cc_matrix, mx_matrix, no_matrix, ad_matrix, bcf_matrix, eg_matrix, paramGapOpen, paramGapExt, paramCoilMatch, paramCoilMismatch, adjusted_matrix);
 
 				if (print_alignment)
 				{
@@ -197,13 +203,16 @@ public class Run {
 						{
 							String name1 = ar.getName1();
 							String name2 = ar.getName2();
-							Matrix cc_matrix = getMatrix("cc", name1, name2, rl, blosum);
-							Matrix mx_matrix = getMatrix("", name1, name2, rl, blosum);
-							Matrix no_matrix = getMatrix("no", name1, name2, rl, blosum);
-	
+							Matrix mx_matrix = getMatrix("all", name1, name2, rl, blosum);
+							Matrix cc_matrix = getMatrix("cc", name1, name2, rl, mx_matrix);
+							Matrix no_matrix = getMatrix("no", name1, name2, rl, mx_matrix);
+							Matrix ad_matrix = getMatrix("ad", name1, name2, rl, cc_matrix);
+							Matrix bcf_matrix = getMatrix("bcf", name1, name2, rl, cc_matrix);
+							Matrix eg_matrix = getMatrix("eg", name1, name2, rl, cc_matrix);
+							
 							logger.fine("Using CC Matrix: " + cc_matrix.getId());
 							
-		        			DoRun task = new DoRun(seq1, seq2, cc_matrix, mx_matrix, no_matrix);
+		        			DoRun task = new DoRun(seq1, seq2, cc_matrix, mx_matrix, no_matrix, ad_matrix, bcf_matrix, eg_matrix);
 		        			
 		        			ar = task.call();
 		        			if (ar.getBitscore() >= bitscore_cutoff) rl.add(ar);
@@ -432,6 +441,11 @@ public class Run {
         			else if (token.equals("adjusted2")) { adjusted_matrix = 2; }
         			else if (token.equals("adjusted3")) { adjusted_matrix = 3; }
         			else if (token.equals("adjusted4")) { adjusted_matrix = 4; }
+        			else if (token.equals("adjusted5")) { adjusted_matrix = 5; }
+        			else if (token.equals("adjusted6")) { adjusted_matrix = 6; }
+        			else if (token.equals("adjusted7")) { adjusted_matrix = 7; }
+        			else if (token.equals("adjusted8")) { adjusted_matrix = 8; }
+        			else if (token.equals("adjusted9")) { adjusted_matrix = 9; }
         			else if (token.startsWith("pc")) { paramCoilMatch = Float.valueOf(token.substring(2)).floatValue(); match_set = true; }
         			else if (token.startsWith("px")) { paramCoilMismatch = Float.valueOf(token.substring(2)).floatValue(); mismatch_set = true;  }
         			else 
@@ -569,11 +583,14 @@ public class Run {
 		        					String name1 = ar.getName1();
 		        					String name2 = ar.getName2();
 	
-		        					Matrix cc_matrix = getMatrix("cc", name1, name2, rl, blosum);
-		        					Matrix mx_matrix = getMatrix("", name1, name2, rl, blosum);
-		        					Matrix no_matrix = getMatrix("no", name1, name2, rl, blosum);
+									Matrix mx_matrix = getMatrix("all", name1, name2, rl, blosum);
+									Matrix cc_matrix = getMatrix("cc", name1, name2, rl, mx_matrix);
+									Matrix no_matrix = getMatrix("no", name1, name2, rl, mx_matrix);
+									Matrix ad_matrix = getMatrix("ad", name1, name2, rl, cc_matrix);
+									Matrix bcf_matrix = getMatrix("bcf", name1, name2, rl, cc_matrix);
+									Matrix eg_matrix = getMatrix("eg", name1, name2, rl, cc_matrix);
 		
-		                			DoRun task = new DoRun(seqs1.get(ar.getName1()), seqs2.get(ar.getName2()), cc_matrix, mx_matrix, no_matrix);
+		                			DoRun task = new DoRun(seqs1.get(ar.getName1()), seqs2.get(ar.getName2()), cc_matrix, mx_matrix, no_matrix, ad_matrix, bcf_matrix, eg_matrix);
 		                			AlignmentResult result = task.call();
 		                	        if (result.getBitscore() >= bitscore_cutoff) System.out.println(result.toString());
 		        				}
@@ -647,11 +664,14 @@ public class Run {
             			// in the symmetrical case, only do upper triangle
             			if (symm && (name1.compareTo(name2) < 0)) continue;
 
-    					Matrix cc_matrix = getMatrix("cc", name1, name2, matrices, blosum);
-    					Matrix mx_matrix = getMatrix("", name1, name2, matrices, blosum);
-    					Matrix no_matrix = getMatrix("no", name1, name2, matrices, blosum);
+            			Matrix mx_matrix = getMatrix("all", name1, name2, matrices, blosum);
+						Matrix cc_matrix = getMatrix("cc", name1, name2, matrices, mx_matrix);
+						Matrix no_matrix = getMatrix("no", name1, name2, matrices, mx_matrix);
+						Matrix ad_matrix = getMatrix("ad", name1, name2, matrices, cc_matrix);
+						Matrix bcf_matrix = getMatrix("bcf", name1, name2, matrices, cc_matrix);
+						Matrix eg_matrix = getMatrix("eg", name1, name2, matrices, cc_matrix);
 
-            			DoRun task = new DoRun(seq1, seq2, cc_matrix, mx_matrix, no_matrix);
+            			DoRun task = new DoRun(seq1, seq2, cc_matrix, mx_matrix, no_matrix, ad_matrix, bcf_matrix, eg_matrix);
             			AlignmentResult result = task.call();
             	        if (result.getBitscore() >= bitscore_cutoff || result.getMessage() != null) System.out.println(result.toString());
 

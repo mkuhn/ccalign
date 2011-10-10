@@ -71,7 +71,8 @@ public class SmithWatermanGotoh {
 	 * @see RichSequence
 	 * @see Matrix
 	 */
-	public static Alignment align(Sequence seq1, Sequence seq2, Matrix cc_matrix, Matrix mx_matrix, Matrix no_matrix,
+	public static Alignment align(Sequence seq1, Sequence seq2, 
+			Matrix cc_matrix, Matrix mx_matrix, Matrix no_matrix, Matrix ad_matrix, Matrix bcf_matrix, Matrix eg_matrix,
 			float o, float e, float c_match, float c_mismatch, int adjusted_matrix) {
 		logger.fine("Started...");
 		long start = System.currentTimeMillis();
@@ -79,6 +80,9 @@ public class SmithWatermanGotoh {
 		float[][] cc_scores = cc_matrix.getScores();
 		float[][] mx_scores = mx_matrix.getScores();
 		float[][] no_scores = no_matrix.getScores();
+		float[][] ad_scores = ad_matrix.getScores();
+		float[][] bcf_scores = bcf_matrix.getScores();
+		float[][] eg_scores = eg_matrix.getScores();
 
 		SmithWatermanGotoh sw = new SmithWatermanGotoh();
 
@@ -103,9 +107,9 @@ public class SmithWatermanGotoh {
 			}
 		}
 
-		Cell cell = sw.construct(seq1.residues, seq2.residues, cc_scores, mx_scores, no_scores, o, e, c_match, c_mismatch, pointers,
+		Cell cell = sw.construct(seq1.residues, seq2.residues, cc_scores, mx_scores, no_scores, ad_scores, bcf_scores, eg_scores, o, e, c_match, c_mismatch, pointers,
 				sizesOfVerticalGaps, sizesOfHorizontalGaps, adjusted_matrix);
-		Alignment alignment = sw.traceback(seq1.residues, seq2.residues, cc_scores, mx_scores, no_scores, pointers, cell,
+		Alignment alignment = sw.traceback(seq1.residues, seq2.residues, cc_scores, mx_scores, no_scores, ad_scores, bcf_scores, eg_scores, pointers, cell,
 				sizesOfVerticalGaps, sizesOfHorizontalGaps);
 		alignment.setName1(seq1.name);
 		alignment.setName2(seq2.name);
@@ -123,6 +127,9 @@ public class SmithWatermanGotoh {
 	 *            sequence #1
 	 * @param seq2
 	 *            sequence #2
+	 * @param eg_scores 
+	 * @param bcf_scores 
+	 * @param ad_scores 
 	 * @param o
 	 *            open gap penalty
 	 * @param e
@@ -136,7 +143,7 @@ public class SmithWatermanGotoh {
 	 * 			  coil mismatch penalty
 	 * @return The cell where the traceback starts.
 	 */
-	private Cell construct(Residue[] seq1, Residue[] seq2, float[][] cc_scores, float[][] mx_scores, float[][] no_scores, float o,
+	private Cell construct(Residue[] seq1, Residue[] seq2, float[][] cc_scores, float[][] mx_scores, float[][] no_scores, float[][] ad_scores, float[][] bcf_scores, float[][] eg_scores, float o,
 			float e, float c_match, float c_mismatch, byte[] pointers, short[] sizesOfVerticalGaps,
 			short[] sizesOfHorizontalGaps, int adjusted_matrix) 
 	{
@@ -184,12 +191,29 @@ public class SmithWatermanGotoh {
 				{
 					if (r2 >= 0)
 					{
-						// use coiled-coil matrix
-						similarityScore = cc_scores[s1][s2]; 
-						
 						final int register = (p1 > p2 || (p1 == p2 && r1 > r2)) ? r1 : r2;
 
-						if (adjusted_matrix == 1)
+						if (adjusted_matrix < 5)
+						{
+							// use coiled-coil matrix
+							similarityScore = cc_scores[s1][s2]; 
+						}
+						else
+						{
+							// use matrix for register group
+							switch (register) {
+								// a,d
+								case 0 :
+								case 3 : similarityScore = ad_scores[s1][s2]; break;
+								// e,g
+								case 4 :
+								case 6 : similarityScore = eg_scores[s1][s2]; break;
+								// b,c,f
+								default : similarityScore = bcf_scores[s1][s2]; break;
+							}
+						}
+
+						if (adjusted_matrix % 5 == 1)
 						{
 							switch (register) {
 								// a,d
@@ -202,7 +226,7 @@ public class SmithWatermanGotoh {
 								default : similarityScore *= 0.2833 / 0.6979; break;
 							}
 						}
-						else if (adjusted_matrix == 2)
+						else if (adjusted_matrix % 5 == 2)
 						{
 							switch (register) {
 								case 0 : similarityScore *= 0.4364 / 0.6979; break;
@@ -214,7 +238,7 @@ public class SmithWatermanGotoh {
 								case 6 : similarityScore *= 0.4127 / 0.6979; break;
 							}
 						}
-						else if (adjusted_matrix == 3)
+						else if (adjusted_matrix % 5 == 3)
 						{
 							switch (register) {
 								case 0 : similarityScore *= 0.4364 / 0.4127; break;
@@ -226,7 +250,7 @@ public class SmithWatermanGotoh {
 								case 6 : similarityScore *= 0.4127 / 0.4127; break;
 							}
 						}
-						else if (adjusted_matrix == 4)
+						else if (adjusted_matrix % 5 == 4)
 						{
 							switch (register) {
 								// a,d
@@ -328,6 +352,9 @@ public class SmithWatermanGotoh {
 	/**
 	 * Returns the alignment of two sequences based on the passed array of
 	 * pointers
+	 * @param eg_scores 
+	 * @param bcf_scores 
+	 * @param ad_scores 
 	 * 
 	 * @param s1
 	 *            sequence #1
@@ -345,7 +372,7 @@ public class SmithWatermanGotoh {
 	 * @see Alignment
 	 */
 	private Alignment traceback(Residue[] seq1, Residue[] seq2, float[][] cc_scores, float[][] mx_scores, float[][] no_scores, 
-			byte[] pointers, Cell cell, short[] sizesOfVerticalGaps,
+			float[][] ad_scores, float[][] bcf_scores, float[][] eg_scores, byte[] pointers, Cell cell, short[] sizesOfVerticalGaps,
 			short[] sizesOfHorizontalGaps) {
 		logger.fine("Started...");
 		long start = System.currentTimeMillis();
