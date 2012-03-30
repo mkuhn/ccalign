@@ -23,8 +23,6 @@ import ccaligner.matrix.Matrix;
 import java.util.BitSet;
 import java.util.logging.Logger;
 
-import org.biojavax.bio.seq.RichSequence;
-
 /**
  * An implementation of the Smith-Waterman algorithm with Gotoh's improvement
  * for biological local pairwise sequence alignment.

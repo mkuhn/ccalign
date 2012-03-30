@@ -21,9 +21,6 @@ package ccaligner.util;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.biojavax.SimpleNamespace;
-import org.biojavax.bio.seq.io.FastaFormat;
-
 /**
  * Global constants/variables/settings
  * 
@@ -32,9 +29,6 @@ import org.biojavax.bio.seq.io.FastaFormat;
 
 public abstract class Commons {
 	
-	private static SimpleNamespace ns = new SimpleNamespace("biojava");
-	private static FastaFormat fastaFormat = new FastaFormat();
-
 	/**
 	 * Logger
 	 */
@@ -155,20 +149,4 @@ public abstract class Commons {
 	public static boolean isJnlp() {
 		return jnlp;
 	}
-
-
-	/**
-	 * Extract sequence name from FASTA header file, the same way that BioJava does when 
-	 * reading a FASTA file by using BioJava's @FastaFormat.   
-	 */
-	public static String extractName(String line) throws Exception
-	{
-		RichSeqIONameListener r = new RichSeqIONameListener();
-		
-		if (!line.startsWith(">")) line = ">" + line;
-		
-		fastaFormat.processHeader(line, r, ns);
-		return r.getName();
-	}
-
 }

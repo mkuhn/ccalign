@@ -2,8 +2,6 @@ package ccaligner;
 
 import java.text.DecimalFormat;
 
-import ccaligner.util.Commons;
-
 public class AlignmentResult implements Comparable<AlignmentResult> {
 
 	private static final DecimalFormat f1 = new DecimalFormat("0.00");
@@ -29,8 +27,8 @@ public class AlignmentResult implements Comparable<AlignmentResult> {
 	
 	public AlignmentResult(String p1, String p2, float bitscore, float identity, int start1,
 			int end1, int start2, int end2, String method) throws Exception {
-		this.p1 = Commons.extractName(p1);
-		this.p2 = Commons.extractName(p2);
+		this.p1 = p1;
+		this.p2 = p2;
 		this.bitscore = bitscore;
 		this.identity = identity;
 		this.start1 = start1;
@@ -59,8 +57,8 @@ public class AlignmentResult implements Comparable<AlignmentResult> {
 	{
 		String[] fields = line.split("\t");
 		
-		this.p1 = Commons.extractName(fields[0]);
-		this.p2 = Commons.extractName(fields[1]);
+		this.p1 = fields[0];
+		this.p2 = fields[1];
 		
 		if (fields.length == 3)
 		{

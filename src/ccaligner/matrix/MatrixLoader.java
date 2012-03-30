@@ -150,8 +150,8 @@ public class MatrixLoader {
 
 		if (tokenizer.countTokens() < matrix_coords.size()) return null;
 		
-		String query = Commons.extractName(tokenizer.nextToken());
-		String subject = Commons.extractName(tokenizer.nextToken());
+		String query = tokenizer.nextToken();
+		String subject = tokenizer.nextToken();
 		Float scaling_factor = Float.valueOf(tokenizer.nextToken());
 		
 		Iterator<MatrixCoord> it = matrix_coords.iterator();

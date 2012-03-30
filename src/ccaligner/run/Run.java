@@ -50,11 +50,6 @@ import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.GnuParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
-import org.biojava.bio.symbol.Alphabet;
-import org.biojava.bio.symbol.AlphabetManager;
-import org.biojavax.SimpleNamespace;
-import org.biojavax.bio.seq.RichSequence;
-import org.biojavax.bio.seq.RichSequenceIterator;
 
 import ccaligner.Alignment;
 import ccaligner.AlignmentResult;
@@ -66,7 +61,6 @@ import ccaligner.SmithWatermanGotoh;
 import ccaligner.formats.Pair;
 import ccaligner.matrix.Matrix;
 import ccaligner.matrix.MatrixLoader;
-import ccaligner.util.Commons;
 
 /**
  * Example of using JAligner API to align P53 human against
@@ -169,12 +163,12 @@ public class Run {
 						{
 							if (skip_missing)
 							{
-								logger.warning("Missing sequence from seq1: " + ar.getName1());
+								logger.warning("Missing sequence from seq1: '" + ar.getName1() + "'");
 								continue;
 							}
 							else
 							{
-								throw new Exception("Cannot find sequence in seqs1: " + ar.getName1());
+								throw new Exception("Cannot find sequence in seqs1: '" + ar.getName1()+ "'");
 							}
 						}
 						Sequence seq2 = seqs2.get(ar.getName2());
@@ -182,12 +176,12 @@ public class Run {
 						{
 							if (skip_missing)
 							{
-								logger.warning("Missing sequence from seq2: " + ar.getName2());
+								logger.warning("Missing sequence from seq2: '" + ar.getName2()+ "'");
 								continue;
 							}
 							else
 							{
-								throw new Exception("Cannot find sequence in seqs2: " + ar.getName2());
+								throw new Exception("Cannot find sequence in seqs2: '" + ar.getName2()+ "'");
 							}
 						}
 	
@@ -636,6 +630,8 @@ public class Run {
 			    		total_done = total_done.add(BigInteger.valueOf(done));
 	            		next_notification = printProgress(total_todo, total_done, next_notification, start);
 				    }
+				    
+		        	if (rli.done()) System.out.println("#DONE");
             	}
             	finally
             	{
@@ -680,7 +676,6 @@ public class Run {
             	}    			
     		}
         	
-        	System.out.println("#DONE");
 	        logger.fine("Finished running ccaligner");
 	        
 			logger.info("Finished in " + (System.currentTimeMillis() - global_start)
@@ -740,31 +735,44 @@ public class Run {
 	 */
 	private static Map<String, Sequence> loadSequences(String aa_path, String cc_path, String filter) throws Exception {
 		
-		Alphabet alpha = AlphabetManager.alphabetForName("PROTEIN");
-	    SimpleNamespace ns = new SimpleNamespace("biojava");
-
 	    // first, read sequence from FASTA so that we know which sequences to align
 	    // note: we don't store the sequences here, but only the name and length
 	    Map<String,Integer> sequence_lengths = new HashMap<String,Integer>(); 
 	    
-	    RichSequenceIterator iterator = RichSequence.IOTools.readFasta(new BufferedReader(openFile(aa_path)), alpha.getTokenization("token"), ns);
-	    while (iterator.hasNext()) {
-	    	RichSequence seq = iterator.nextRichSequence();
-	    	
-	    	if (filter.isEmpty() || seq.getName().matches(filter)) {
-	    		sequence_lengths.put(seq.getName(), seq.length());
+	    BufferedReader br = new BufferedReader(openFile(aa_path));
+	    String name = null;
+	    int n = 0;
+	    
+	    for (String line = br.readLine().trim(); line != null; line = br.readLine()) {
+	    	if (line.startsWith(">"))
+	    	{
+	    		if (n > 0)
+	    		{
+	    			sequence_lengths.put(name, n);
+	    			n = 0;
+	    		}
+	    		
+	    		name = line.substring(1);
+	    	}
+	    	else 
+	    	{
+	    		n += line.length();
 	    	}
 	    }
+	    
+		if (n > 0)
+		{
+			sequence_lengths.put(name, n);
+		}
 
 	    // second, read coil predictions and protein sequence from the coiled coil prediction
 	    Map<String,Sequence> sequences = new HashMap<String,Sequence>(); 
 
-	    BufferedReader br = new BufferedReader(openFile(cc_path));
+	    br = new BufferedReader(openFile(cc_path));
 	    
 	    ArrayList<Residue> residues = null;
-	    String name = null;
 	    
-	    for (String line = br.readLine(); line != null; line = br.readLine()) {
+	    for (String line = br.readLine().trim(); line != null; line = br.readLine()) {
 	    	// check here if we're interested in the prediction for this sequence
 	    	if (line.startsWith(">"))
 	    	{
@@ -773,8 +781,8 @@ public class Run {
 	    			sequences.put( name, new Sequence(name, residues.toArray(new Residue[0])) );
 	    		}
 	    		
-	    		name = Commons.extractName(line);
-	    		
+	    		name = line.substring(1);
+
 	    		if (sequence_lengths.containsKey(name))
 	    		{
 	    			residues = new ArrayList<Residue>(sequence_lengths.get(name));

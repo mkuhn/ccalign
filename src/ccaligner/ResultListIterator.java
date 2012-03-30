@@ -28,6 +28,8 @@ public class ResultListIterator implements Iterator<ResultList> {
 	private BufferedReader br;
 	private float bitscore_cutoff;
 	private int recompute_pass;
+
+	private boolean doneSeen = false;
 	
 	private boolean next_rl_valid = false;
 	private ResultList next_rl = null;
@@ -77,22 +79,32 @@ public class ResultListIterator implements Iterator<ResultList> {
         			
         			if (line.startsWith("## query"))
         			{
-        				ml = new MatrixLoader(line);
+        				if (ml == null)
+        				{
+        					ml = new MatrixLoader(line);
+        				}
         			}
         			else
         			{
-        				if (ml == null)
-        				{
-            				logger.warning("Encountering adjusted matrix before matrix header, using standard header");
-            				ml = new MatrixLoader();
-        				}
-        				Matrix m = ml.loadFromLine(line);
-        				if (m != null)
-        				{
-        					rl.addMatrix(m.getId(), m);
-        				}
-            			// recompute_pass -1: just echo and recompute lines with errors
-        				else if (recompute_pass == -1) System.out.println(line);
+            			if (line.contentEquals("#DONE"))
+            			{
+            				doneSeen = true;
+            			}
+            			else
+            			{
+	            			if (ml == null)
+	        				{
+	            				logger.warning("Encountering adjusted matrix before matrix header, using standard header");
+	            				ml = new MatrixLoader();
+	        				}
+	        				Matrix m = ml.loadFromLine(line);
+	        				if (m != null)
+	        				{
+	        					rl.addMatrix(m.getId(), m);
+	        				}
+	            			// recompute_pass -1: just echo and recompute lines with errors
+	        				else if (recompute_pass == -1) System.out.println(line);
+            			}
         			}
         			continue;
         		}
@@ -152,6 +164,11 @@ public class ResultListIterator implements Iterator<ResultList> {
 		return next_rl;
 	}
 
+	public boolean done()
+	{
+		return doneSeen; 
+	}
+	
 	/**
 	 * Optional method: not implemented
 	 */
