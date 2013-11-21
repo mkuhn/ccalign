@@ -245,7 +245,7 @@ public class Run {
 
 	private static final String SAMPLE_MATRICES_AB = "hsa_cel_matrix.tsv";
 
-	private static Matrix blosum;
+	private static Matrix blosum = null;
 	
 	/**
 	 * Logger
@@ -296,6 +296,7 @@ public class Run {
 		options.addOption("c2", true, "coiled-coil prediction for protein sequences 2");
 		options.addOption("s2", true, "optional regex for a sequence to use out of db2");
 		options.addOption("s", false, "symmetric input: don't need p2/c2");
+		options.addOption("m", true, "load matrices from file (or stdin if the parameter is '--')");
 
 		// S-W params
 		options.addOption("PE", true, "parameter: gap extension penalty");
@@ -470,9 +471,15 @@ public class Run {
         	if (adjusted_matrix > 0) { System.out.println("# using adjusted matrix, method: " + adjusted_matrix ); }
         	System.out.println("# bitscore cutoff: " + f1.format(bitscore_cutoff));
         	
-        	blosum = MatrixLoader.load("BLOSUM62");
+			blosum = MatrixLoader.load("BLOSUM62");
         	
     		Map<String,Matrix> matrices = new HashMap<String,Matrix>();
+
+        	if (cmd.hasOption("m")) {
+        		String filename = cmd.getOptionValue("m", ""); 
+        		matrices = MatrixLoader.loadMatrices(filename, openFile(filename));
+        	}
+
     		
     		if(cmd.hasOption("D"))
         	{
@@ -666,7 +673,7 @@ public class Run {
 						Matrix ad_matrix = getMatrix("ad", name1, name2, matrices, cc_matrix);
 						Matrix bcf_matrix = getMatrix("bcf", name1, name2, matrices, cc_matrix);
 						Matrix eg_matrix = getMatrix("eg", name1, name2, matrices, cc_matrix);
-
+						
             			DoRun task = new DoRun(seq1, seq2, cc_matrix, mx_matrix, no_matrix, ad_matrix, bcf_matrix, eg_matrix);
             			AlignmentResult result = task.call();
             	        if (result.getBitscore() >= bitscore_cutoff || result.getMessage() != null) System.out.println(result.toString());
@@ -850,7 +857,7 @@ public class Run {
 	
 	
 
-	private static Reader openFile(String path) throws IOException {
+	private static InputStreamReader openFile(String path) throws IOException {
 		
 		if (path.contentEquals("--"))
 		{

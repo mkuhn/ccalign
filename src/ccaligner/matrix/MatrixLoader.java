@@ -20,7 +20,7 @@ package ccaligner.matrix;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -39,6 +39,7 @@ import java.util.jar.JarFile;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import ccaligner.Residue;
 import ccaligner.util.Commons;
 
 
@@ -178,12 +179,12 @@ public class MatrixLoader {
 	public static Map<String,Matrix> loadMatrices (String matrix) throws Exception {
 	    logger.fine("Trying to load scoring matrices... " + matrix );
 
-		InputStream is = null;
+		InputStreamReader isr = null;
 		
 		if (new StringTokenizer(matrix, Commons.getFileSeparator()).countTokens() == 1) {
 			// Matrix does not include the path
 			// Load the matrix from matrices.jar
-			is = MatrixLoader.class.getClassLoader().getResourceAsStream(MATRICES_HOME + matrix);
+			InputStream is = MatrixLoader.class.getClassLoader().getResourceAsStream(MATRICES_HOME + matrix);
 			
 			if (is == null)
 			{
@@ -191,11 +192,14 @@ public class MatrixLoader {
 		        logger.log(Level.SEVERE, message);
 		        throw new MatrixLoaderException (message);
 			}
+			
+			isr = new InputStreamReader( is );
+			
 		} else {
 			// Matrix includes the path information
 			// Load the matrix from the file system
 			try {
-			    is = new FileInputStream(matrix);
+			    isr = new FileReader(matrix);
 		    } catch (Exception e) {
 		        String message = "Failed opening input stream: " + e.getMessage();
 		        logger.log(Level.SEVERE, message, e);
@@ -203,21 +207,21 @@ public class MatrixLoader {
 		    }
 		}
 
-		return loadMatrices(matrix, is);
+		return loadMatrices(matrix, isr);
 	}	
 	
 	/**
-	 * Loads scoring matrix from {@link InputStream}
-	 * @param nis named input stream
+	 * Loads scoring matrix from {@link InputStreamReader}
+	 * @param nis named input stream reader
 	 * @return loaded matrix
 	 * @throws Exception 
 	 * @see Matrix
 	 * @see NamedInputStream
 	 */
-	public static Map<String,Matrix> loadMatrices (String matrix, InputStream is) throws Exception {
+	public static Map<String,Matrix> loadMatrices (String matrix, InputStreamReader isr) throws Exception {
 	    logger.fine("Loading scoring matrices... " + matrix );
 			
-		BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+		BufferedReader reader = new BufferedReader(isr);
 		
 		Map<String,Matrix> matrices = new HashMap<String,Matrix>();
 		
@@ -249,17 +253,17 @@ public class MatrixLoader {
 	 * @see Matrix
 	 */
 	public static Matrix load (String matrix) throws MatrixLoaderException {
-		InputStream is = null;
+		InputStreamReader isr = null;
 		
 		if (new StringTokenizer(matrix, Commons.getFileSeparator()).countTokens() == 1) {
 			// Matrix does not include the path
 			// Load the matrix from matrices.jar
-			is = MatrixLoader.class.getClassLoader().getResourceAsStream(MATRICES_HOME + matrix);
+			isr = new InputStreamReader( MatrixLoader.class.getClassLoader().getResourceAsStream(MATRICES_HOME + matrix) );
 		} else {
 			// Matrix includes the path information
 			// Load the matrix from the file system
 			try {
-			    is = new FileInputStream(matrix);
+			    isr = new FileReader(matrix);
 		    } catch (Exception e) {
 		        String message = "Failed opening input stream: " + e.getMessage();
 		        logger.log(Level.SEVERE, message, e);
@@ -267,18 +271,18 @@ public class MatrixLoader {
 		    }
 		}
 
-		return load(matrix, is);
+		return load(matrix, isr);
 	}
 
 	/**
-	 * Loads scoring matrix from {@link InputStream}
-	 * @param nis named input stream
+	 * Loads scoring matrix from {@link InputStreamReader}
+	 * @param nis named input stream reader
 	 * @return loaded matrix
 	 * @throws MatrixLoaderException
 	 * @see Matrix
 	 * @see NamedInputStream
 	 */
-	public static Matrix load (String matrix, InputStream is) throws MatrixLoaderException {
+	public static Matrix load (String matrix, InputStreamReader isr) throws MatrixLoaderException {
 	    logger.fine("Loading scoring matrix... " + matrix );
 	    char[] acids = new char[SIZE];
 			
@@ -289,7 +293,7 @@ public class MatrixLoader {
 			
 		float[][] scores = new float[SIZE][SIZE];
 
-		BufferedReader reader = new BufferedReader(new InputStreamReader(is));
+		BufferedReader reader = new BufferedReader(isr);
 		
 		String line;
 			
@@ -330,9 +334,12 @@ public class MatrixLoader {
 					acid = acids[current_acid++];
 				}
 				
+				short acid_index = Residue.aa_to_code[ acid ];
+				
 				for (int i = 0; i < SIZE; i++) {
 					if (acids[i] != 0 && tokenizer.hasMoreTokens()) {
-						scores[acids[i]][acid] = scores[acid][acids[i]] = Float.parseFloat(tokenizer.nextToken()); 
+						short acid_i_index = Residue.aa_to_code[ acids[i] ];
+						scores[acid_index][acid_i_index] = scores[acid_i_index][acid_index] = Float.parseFloat(tokenizer.nextToken()); 
 					}
 				}
 			}

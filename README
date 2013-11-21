@@ -1,3 +1,9 @@
-JAligner <http://jaligner.sf.net> - By: Ahmed Moustafa <ahmed@users.sf.net>
+CCAlign -- Refined alignment of coiled coil proteins
 
-JAligner is an open source Java implementation of the Smith-Waterman algorithm with Gotoh's improvement for biological local pairwise sequence alignment with the affine gap penalty model.
+CCAlign is based on JAligner (http://jaligner.sf.net), an open source Java 
+implementation of the Smith-Waterman algorithm with Gotoh's improvement for
+biological local pairwise sequence alignment with the affine gap penalty model.
+
+This program makes use of coiled-coil predictions by MultiCoil2 and substitution
+matrices created by a modified BLAST version.
+
