@@ -24,7 +24,6 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.Reader;
 import java.math.BigInteger;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -480,12 +479,13 @@ public class Run {
         		matrices = MatrixLoader.loadMatrices(filename, openFile(filename));
         	}
 
+        	boolean skip_missing = cmd.hasOption("rx");
     		
     		if(cmd.hasOption("D"))
         	{
             	logger.fine("Running example...");
-            	seqs1 = loadSequences(SAMPLE_SEQUENCE_A, SAMPLE_PC_A, cmd.getOptionValue("s1", ""));  
-            	seqs2 = loadSequences(SAMPLE_SEQUENCE_B, SAMPLE_PC_B, cmd.getOptionValue("s2", ""));
+            	seqs1 = loadSequences(SAMPLE_SEQUENCE_A, SAMPLE_PC_A, cmd.getOptionValue("s1", ""), false);  
+            	seqs2 = loadSequences(SAMPLE_SEQUENCE_B, SAMPLE_PC_B, cmd.getOptionValue("s2", ""), false);
             	
             	matrices = MatrixLoader.loadMatrices(SAMPLE_MATRICES_AB);
             	
@@ -509,7 +509,7 @@ public class Run {
         			return;
         		}
         		
-            	seqs1 = loadSequences(cmd.getOptionValue("p1"), cmd.getOptionValue("c1"), cmd.getOptionValue("s1", ""));
+            	seqs1 = loadSequences(cmd.getOptionValue("p1"), cmd.getOptionValue("c1"), cmd.getOptionValue("s1", ""), skip_missing);
             	
             	if (symm)
             	{
@@ -517,7 +517,7 @@ public class Run {
             	}
             	else
             	{
-                	seqs2 = loadSequences(cmd.getOptionValue("p2"), cmd.getOptionValue("c2"), cmd.getOptionValue("s2", ""));
+                	seqs2 = loadSequences(cmd.getOptionValue("p2"), cmd.getOptionValue("c2"), cmd.getOptionValue("s2", ""), skip_missing);
             	}
         	} 
         	// set up estimates for remaining time
@@ -548,8 +548,6 @@ public class Run {
             	int recompute_pass = 0;
             	if (cmd.hasOption("rp")) recompute_pass = Integer.valueOf(cmd.getOptionValue("rp"));
 
-            	boolean skip_missing = cmd.hasOption("rx");
-            	
         		long start = System.currentTimeMillis();
         		long next_notification = start + 10000; // print first notification after 10 seconds 
 
@@ -740,7 +738,7 @@ public class Run {
 	 * @return sequence string
 	 * @throws Exception 
 	 */
-	private static Map<String, Sequence> loadSequences(String aa_path, String cc_path, String filter) throws Exception {
+	private static Map<String, Sequence> loadSequences(String aa_path, String cc_path, String filter, boolean skip_missing) throws Exception {
 		
 	    // first, read sequence from FASTA so that we know which sequences to align
 	    // note: we don't store the sequences here, but only the name and length
@@ -849,7 +847,11 @@ public class Run {
 		for (String seq_name : sequence_lengths.keySet())
 		{
 			if (sequences.containsKey(seq_name)) continue;
-			throw new Exception("Missing coiled-coil prediction for '"+seq_name+"' when reading from '"+cc_path+"'!");
+			if (skip_missing) {
+				logger.info("Missing coiled-coil prediction for '"+seq_name+"' when reading from '"+cc_path+"'!");
+			} else {
+				throw new Exception("Missing coiled-coil prediction for '"+seq_name+"' when reading from '"+cc_path+"'!");
+			}
 		}
 
 		return sequences;
